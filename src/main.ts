@@ -25,6 +25,10 @@ async function init() {
     canvas.id = "gpu-canvas";
     document.getElementById("app")?.appendChild(canvas);
   }
+  // Make it fullscreen
+  canvas.width = window.screen.width;
+  canvas.height = window.screen.height;
+
   const context = canvas.getContext("webgpu");
   if (!context) {
     console.error(
