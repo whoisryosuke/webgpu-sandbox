@@ -39,8 +39,8 @@ async function init() {
 
   // Setup vertex buffer
   const vertices = new Float32Array([
-    -1.0, -1.0, 0, 1, 0, 0, 1, 1.0, -1.0, 0, 0, 1, 0, 1, 1.0, 1.0, 0, 0, 1, 1,
-    1, -1.0, 1.0, 0, 0, 0, 1, 1,
+    0.0, 0.6, 0, 1, 1, 0, 0, 1, -0.5, -0.6, 0, 1, 0, 1, 0, 1, 0.5, -0.6, 0, 1,
+    0, 0, 1, 1,
   ]);
 
   const vertexBuffer = device.createBuffer({
@@ -64,16 +64,18 @@ async function init() {
         {
           shaderLocation: 0,
           offset: 0,
-          format: "float32x3",
+          format: "float32x4",
         },
         // Color
         {
           shaderLocation: 1,
-          offset: 12,
+          // This offset represents the 4x4 value from above
+          // which comes from our 4D position (XYZA)
+          offset: 16,
           format: "float32x4",
         },
       ],
-      arrayStride: 28,
+      arrayStride: 32,
       stepMode: "vertex",
     },
   ];
@@ -119,7 +121,7 @@ async function init() {
 
   passEncoder.setPipeline(renderPipeline);
   passEncoder.setVertexBuffer(0, vertexBuffer);
-  passEncoder.draw(4);
+  passEncoder.draw(3);
   passEncoder.end();
 
   device.queue.submit([commandEncoder.finish()]);
