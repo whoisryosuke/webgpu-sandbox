@@ -137,10 +137,9 @@ async function init() {
   const kScaleOffset = 4;
   const kOffsetOffset = 6;
 
+  // Create the uniforms
   uniformValues.set([0, 1, 0, 1], kColorOffset); // set the color
   uniformValues.set([-0.5, -0.25], kOffsetOffset); // set the offset
-  const aspect = canvas.width / canvas.height;
-  uniformValues.set([0.5 / aspect, 0.5], kScaleOffset); // set the scale
 
   // Create a bind group to hold the uniforms
   const uniformBindGroup = device.createBindGroup({
@@ -155,6 +154,12 @@ async function init() {
     ],
   });
   const timeUniformData = Date.now();
+
+  // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
+  // aka example of a "dynamic" uniform
+  const aspect = canvas.width / canvas.height;
+  uniformValues.set([0.5 / aspect, 0.5], kScaleOffset); // set the scale
+
   // Update uniforms
   device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
