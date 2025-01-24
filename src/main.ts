@@ -125,24 +125,29 @@ async function init() {
   const uniformBufferSize =
     4 * 4 + // color is 4 32bit floats (4bytes each)
     2 * 4 + // scale is 2 32bit floats (4bytes each)
-    2 * 4; // offset is 2 32bit floats (4bytes each)
+    2 * 4 + // offset is 2 32bit floats (4bytes each)
+    1 * 4 + // time is 1 32bit floats (4bytes each)
+    3 * 4; // we need some padding to meet 48 requirement;
   const uniformBuffer = device.createBuffer({
+    label: "Local Uniform buffer",
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
+  console.log("uniformBufferSize", uniformBufferSize);
   // Create an buffer-friendly array (aka `TypedArray`) and use the buffer size
   const uniformValues = new Float32Array(uniformBufferSize / 4);
   // offsets to the various uniform values in float32 indices
   const kColorOffset = 0;
   const kScaleOffset = 4;
   const kOffsetOffset = 6;
+  const kTimeOffset = 7;
 
   // Create the uniforms
-  uniformValues.set([0, 1, 0, 1], kColorOffset); // set the color
-  uniformValues.set([-0.5, -0.25], kOffsetOffset); // set the offset
+  uniformValues.set([0, 0, 1, 1], kColorOffset); // set the color
 
   // Create a bind group to hold the uniforms
   const uniformBindGroup = device.createBindGroup({
+    label: "Local Uniforms",
     layout: renderPipeline.getBindGroupLayout(0),
     entries: [
       {
@@ -153,41 +158,65 @@ async function init() {
       },
     ],
   });
-  const timeUniformData = Date.now();
 
-  // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
-  // aka example of a "dynamic" uniform
-  const aspect = canvas.width / canvas.height;
-  uniformValues.set([0.5 / aspect, 0.5], kScaleOffset); // set the scale
+  let frameCount = 0;
 
-  // Update uniforms
-  device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+  const render = (timestamp: number) => {
+    // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
+    // aka example of a "dynamic" uniform
+    // const timeUniformData = Date.now();
+    const timeUniformData = timestamp;
+    const aspect = canvas.width / canvas.height;
+    uniformValues.set([0.5 / aspect, 0.5], kScaleOffset); // set the scale
+    uniformValues[kScaleOffset + 1] = 0.5 / aspect;
+    uniformValues[kScaleOffset + 2] = 0.5;
 
-  // Create command encoder (that runs render tasks)
-  const commandEncoder = device.createCommandEncoder();
+    uniformValues.set([0, frameCount], kOffsetOffset); // set the offset
+    uniformValues.set([timeUniformData], kTimeOffset); // set the time
 
-  const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
-  const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [
-      {
-        loadValue: clearColor,
-        loadOp: "clear",
-        storeOp: "store",
-        view: context.getCurrentTexture().createView(),
-      } as GPURenderPassColorAttachment,
-    ],
+    uniformValues[kTimeOffset + 1] = timestamp;
+
+    console.log(
+      "time / frame",
+      timeUniformData,
+      frameCount
+      // uniformValues
+    );
+
+    // Create command encoder (that runs render tasks)
+    const commandEncoder = device.createCommandEncoder();
+
+    const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
+    const renderPassDescriptor: GPURenderPassDescriptor = {
+      colorAttachments: [
+        {
+          loadValue: clearColor,
+          loadOp: "clear",
+          storeOp: "store",
+          view: context.getCurrentTexture().createView(),
+        } as GPURenderPassColorAttachment,
+      ],
+    };
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+
+    // Update uniforms
+    device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+
+    // Render
+    passEncoder.setPipeline(renderPipeline);
+    passEncoder.setBindGroup(0, uniformBindGroup);
+    passEncoder.setVertexBuffer(0, vertexBuffer);
+    passEncoder.draw(3);
+    passEncoder.end();
+    // Finish rendering
+    device.queue.submit([commandEncoder.finish()]);
+
+    // Rinse repeat
+    frameCount++;
+    requestAnimationFrame(render);
   };
-  const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
-  // Render
-  passEncoder.setPipeline(renderPipeline);
-  passEncoder.setBindGroup(0, uniformBindGroup);
-  passEncoder.setVertexBuffer(0, vertexBuffer);
-  passEncoder.draw(3);
-  passEncoder.end();
-
-  // Finish rendering
-  device.queue.submit([commandEncoder.finish()]);
+  requestAnimationFrame(render);
 }
 
 window.addEventListener("load", main);

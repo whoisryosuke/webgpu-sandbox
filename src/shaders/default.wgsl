@@ -1,12 +1,14 @@
 struct VertexOut {
   @builtin(position) position : vec4f,
-  @location(0) color : vec4f
+  @location(0) color : vec4f,
+  @location(1) time : f32
 }
 
 struct LocalUniforms {
   color: vec4f,
   scale: vec2f,
   offset: vec2f,
+  time: f32
 };
 
 @group(0) @binding(0) var<uniform> locals: LocalUniforms;
@@ -19,8 +21,12 @@ fn vertex_main(
 ) -> VertexOut
 {
   var output : VertexOut;
-  output.position = position;
-  output.color = color * locals.color;
+  var newPosition = vec4f(position.xy * locals.scale, position.zw);
+  newPosition.y += sin(locals.time * 0.001);
+  // newPosition.x += locals.scale.y * 0.1;
+  output.position = newPosition;
+  output.color = color + locals.color;
+  output.time = locals.time;
   return output;
 }
 
