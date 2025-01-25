@@ -1,5 +1,6 @@
 import "./style.css";
 import defaultShader from "./shaders/default.wgsl?raw";
+import { generatePlane } from "./primitives/plane";
 
 async function main() {
   await init();
@@ -41,17 +42,43 @@ async function init() {
 
   // Setup vertex buffer
   const vertices = new Float32Array([
-    0.0, 0.6, 0, 1, 1, 0, 0, 1, -0.5, -0.6, 0, 1, 0, 1, 0, 1, 0.5, -0.6, 0, 1,
-    0, 0, 1, 1,
+    ...[0.0, 0.6, 0, 1], // Vertex
+    ...[1, 0, 0, 1],
+    ...[-0.5, -0.6, 0, 1],
+    ...[0, 1, 0, 1],
+    ...[0.5, -0.6, 0, 1],
+    ...[0, 0, 1, 1],
   ]);
+  // const { vertices } = generatePlane(0.5);
 
   const vertexBuffer = device.createBuffer({
+    label: "Vertex buffer",
     size: vertices.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    mappedAtCreation: true,
   });
-  new Float32Array(vertexBuffer.getMappedRange()).set(vertices);
-  vertexBuffer.unmap();
+  device.queue.writeBuffer(vertexBuffer, 0, vertices);
+
+  const indexData = new Uint32Array([0, 1, 2, 3, 4, 5]);
+  // const indexData = new Float32Array([
+  //   0,
+  //   1,
+  //   2,
+  //   0,
+  //   2,
+  //   3, // front
+  //   // 4, 5, 6, 4, 6, 7, // back
+  //   // 8, 9, 10, 8, 10, 11, // top
+  //   // 12, 13, 14, 12, 14, 15, // bottom
+  //   // 16, 17, 18, 16, 18, 19, // right
+  //   // 20, 21, 22, 20, 22, 23, // left
+  // ]);
+
+  const indexBuffer = device.createBuffer({
+    label: "Index buffer",
+    size: indexData.byteLength,
+    usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(indexBuffer, 0, indexData);
 
   // Setup shader
   const shaderModule = device.createShaderModule({
@@ -186,7 +213,7 @@ async function init() {
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          loadValue: clearColor,
+          loadValue: [0.5, 0, 1, 1],
           loadOp: "clear",
           storeOp: "store",
           view: context.getCurrentTexture().createView(),
@@ -202,7 +229,9 @@ async function init() {
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, vertexBuffer);
-    passEncoder.draw(3);
+    passEncoder.setIndexBuffer(indexBuffer, "uint32");
+    passEncoder.drawIndexed(indexData.length, 1);
+    // passEncoder.draw(3);
     passEncoder.end();
     // Finish rendering
     device.queue.submit([commandEncoder.finish()]);
