@@ -143,7 +143,12 @@ async function init() {
   const kTimeOffset = 7;
 
   // Create the uniforms
+  // Because we initialize the array with a length, but not a real array,
+  // we need to explicitly set each "slot" in the array
   uniformValues.set([0, 0, 1, 1], kColorOffset); // set the color
+  uniformValues.set([0.5, 0.5], kScaleOffset); // set the scale
+  uniformValues.set([0, 0], kOffsetOffset); // set the offset
+  uniformValues.set([0], kTimeOffset); // set the time
 
   // Create a bind group to hold the uniforms
   const uniformBindGroup = device.createBindGroup({
@@ -167,21 +172,12 @@ async function init() {
     // const timeUniformData = Date.now();
     const timeUniformData = timestamp;
     const aspect = canvas.width / canvas.height;
-    uniformValues.set([0.5 / aspect, 0.5], kScaleOffset); // set the scale
-    uniformValues[kScaleOffset + 1] = 0.5 / aspect;
-    uniformValues[kScaleOffset + 2] = 0.5;
-
-    uniformValues.set([0, frameCount], kOffsetOffset); // set the offset
-    uniformValues.set([timeUniformData], kTimeOffset); // set the time
-
+    uniformValues[kScaleOffset] = 0.5 / aspect;
+    uniformValues[kScaleOffset + 1] = 0.5;
+    uniformValues[kOffsetOffset + 1] = frameCount;
     uniformValues[kTimeOffset + 1] = timestamp;
 
-    console.log(
-      "time / frame",
-      timeUniformData,
-      frameCount
-      // uniformValues
-    );
+    // console.log("time / frame", timeUniformData, frameCount, uniformValues);
 
     // Create command encoder (that runs render tasks)
     const commandEncoder = device.createCommandEncoder();

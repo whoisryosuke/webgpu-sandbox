@@ -23,7 +23,7 @@ fn vertex_main(
   var output : VertexOut;
   var newPosition = vec4f(position.xy * locals.scale, position.zw);
   newPosition.y += sin(locals.time * 0.001);
-  // newPosition.x += locals.scale.y * 0.1;
+  newPosition.x += cos(locals.offset.y * 0.01) * 0.25;
   output.position = newPosition;
   output.color = color + locals.color;
   output.time = locals.time;
