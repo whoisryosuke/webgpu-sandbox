@@ -41,37 +41,57 @@ async function init() {
   });
 
   // Setup vertex buffer
-  const vertices = new Float32Array([
-    ...[0.0, 0.6, 0, 1], // Vertex
-    ...[1, 0, 0, 1],
-    ...[-0.5, -0.6, 0, 1],
-    ...[0, 1, 0, 1],
-    ...[0.5, -0.6, 0, 1],
-    ...[0, 0, 1, 1],
-  ]);
-  // const { vertices } = generatePlane(0.5);
+
+  // Debug triangle
+  // const vertices = new Float32Array([
+  //   ...[0.0, 0.6, 0, 1], // Vertex
+  //   ...[1, 0, 0, 1],
+  //   ...[-0.5, -0.6, 0, 1],
+  //   ...[0, 1, 0, 1],
+  //   ...[0.5, -0.6, 0, 1],
+  //   ...[0, 0, 1, 1],
+  // ]);
+
+  // Generate vertices for a plane (a rectangle aka 2 tris)
+  const { vertices } = generatePlane(0.5);
+  console.log("verts", vertices, vertices.length / 4);
+  // Since our vertex buffer also includes colors
+  // We need to add a color (aka vec4) after each vertex
+  const verticesWithColor = new Float32Array(
+    vertices.reduce((merge, vertex, index) => {
+      // insert colors
+      if (index !== 0 && (index + 1) % 4 == 0) {
+        return [...merge, vertex, ...[0, 0, 1, 1]];
+      }
+      return [...merge, vertex];
+    }, [] as number[])
+  );
+  console.log("verticesWithColor", verticesWithColor);
 
   const vertexBuffer = device.createBuffer({
     label: "Vertex buffer",
-    size: vertices.byteLength,
+    size: verticesWithColor.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(vertexBuffer, 0, vertices);
+  device.queue.writeBuffer(vertexBuffer, 0, verticesWithColor);
 
-  const indexData = new Uint32Array([0, 1, 2, 3, 4, 5]);
-  // const indexData = new Float32Array([
-  //   0,
-  //   1,
-  //   2,
-  //   0,
-  //   2,
-  //   3, // front
-  //   // 4, 5, 6, 4, 6, 7, // back
-  //   // 8, 9, 10, 8, 10, 11, // top
-  //   // 12, 13, 14, 12, 14, 15, // bottom
-  //   // 16, 17, 18, 16, 18, 19, // right
-  //   // 20, 21, 22, 20, 22, 23, // left
-  // ]);
+  const indexData = new Uint32Array([
+    0,
+    1,
+    3,
+    0,
+    2,
+    3, // front
+    // 4, 5, 6, 4, 6, 7, // back
+    // 8, 9, 10, 8, 10, 11, // top
+    // 12, 13, 14, 12, 14, 15, // bottom
+    // 16, 17, 18, 16, 18, 19, // right
+    // 20, 21, 22, 20, 22, 23, // left
+  ]);
+  //-0.5, -0.5, 0, 1, // 0
+  // 0.5, -0.5, 0, 1, // 1
+  // -0.5, 0.5, 0, 1, // 2
+  // 0.5, 0.5, 0, 1 // 3
 
   const indexBuffer = device.createBuffer({
     label: "Index buffer",
@@ -140,6 +160,7 @@ async function init() {
       ],
     },
     primitive: {
+      // topology: "point-list",
       topology: "triangle-list",
     },
     // This determines the bind group layout automatically by analyzing the shader modules

@@ -21,10 +21,10 @@ fn vertex_main(
 ) -> VertexOut
 {
   var output : VertexOut;
-  var newPosition = vec4f(position.xy * locals.scale, position.zw);
-  newPosition.y += sin(locals.time * 0.001);
-  newPosition.x += cos(locals.offset.y * 0.01) * 0.25;
-  output.position = newPosition;
+  // var newPosition = vec4f(position.xy * locals.scale, position.zw);
+  // newPosition.y += sin(locals.time * 0.001);
+  // newPosition.x += cos(locals.offset.y * 0.01) * 0.25;
+  output.position = position;
   output.color = color + locals.color;
   output.time = locals.time;
   return output;
@@ -33,5 +33,6 @@ fn vertex_main(
 @fragment
 fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
 {
+  // return vec4f(0,0,1.0,1.0);
   return fragData.color;
 }
