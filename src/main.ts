@@ -54,35 +54,13 @@ async function init() {
 
   // Generate vertices for a plane (a rectangle aka 2 tris)
   const { vertices } = generatePlane(0.5);
-  console.log("verts", vertices, vertices.length / 4);
-  // Since our vertex buffer also includes colors
-  // We need to add a color (aka vec4) after each vertex
-  const verticesWithColor = new Float32Array(
-    vertices.reduce((merge, vertex, index) => {
-      // insert colors
-      if (index !== 0 && (index + 1) % 4 == 0) {
-        return [
-          ...merge,
-          vertex,
-          ...[
-            (index + 1) / 4 == 1 ? 1 : 0,
-            (index + 1) / 4 == 2 ? 1 : 0,
-            (index + 1) / 4 == 3 ? 1 : 0,
-            1,
-          ],
-        ];
-      }
-      return [...merge, vertex];
-    }, [] as number[])
-  );
-  console.log("verticesWithColor", verticesWithColor);
 
   const vertexBuffer = device.createBuffer({
     label: "Vertex buffer",
-    size: verticesWithColor.byteLength,
+    size: vertices.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(vertexBuffer, 0, verticesWithColor);
+  device.queue.writeBuffer(vertexBuffer, 0, vertices);
 
   const indexData = new Uint32Array([
     0,

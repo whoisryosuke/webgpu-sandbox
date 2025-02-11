@@ -1,0 +1,22 @@
+export type Number2DArray = [number, number];
+export type Number3DArray = [...Number2DArray, number];
+export type Number4DArray = [...Number3DArray, number];
+
+export type Vertex = {
+  position: Number4DArray;
+  normals: Number4DArray;
+};
+
+/**
+ * Takes our vertex type and converts to an indexed array type for GPU buffers.
+ * by merging all vertex data into a single contiguous array.
+ * @param vertices
+ * @returns
+ */
+export function createVertexBufferData(vertices: Vertex[]) {
+  const data = vertices.reduce((merge, vertex) => {
+    return [...merge, ...vertex.position, ...vertex.normals];
+  }, [] as number[]);
+
+  return new Float32Array(data);
+}
