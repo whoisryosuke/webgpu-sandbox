@@ -61,7 +61,16 @@ async function init() {
     vertices.reduce((merge, vertex, index) => {
       // insert colors
       if (index !== 0 && (index + 1) % 4 == 0) {
-        return [...merge, vertex, ...[0, 0, 1, 1]];
+        return [
+          ...merge,
+          vertex,
+          ...[
+            (index + 1) / 4 == 1 ? 1 : 0,
+            (index + 1) / 4 == 2 ? 1 : 0,
+            (index + 1) / 4 == 3 ? 1 : 0,
+            1,
+          ],
+        ];
       }
       return [...merge, vertex];
     }, [] as number[])

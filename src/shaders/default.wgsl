@@ -25,7 +25,8 @@ fn vertex_main(
   // newPosition.y += sin(locals.time * 0.001);
   // newPosition.x += cos(locals.offset.y * 0.01) * 0.25;
   output.position = position;
-  output.color = color + locals.color;
+  // output.color = color + locals.color;
+  output.color = color;
   output.time = locals.time;
   return output;
 }
