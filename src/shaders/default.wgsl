@@ -21,10 +21,21 @@ fn vertex_main(
 ) -> VertexOut
 {
   var output : VertexOut;
-  // var newPosition = vec4f(position.xy * locals.scale, position.zw);
+  var newPosition = vec4f(position.xy * locals.scale, position.zw);
   // newPosition.y += sin(locals.time * 0.001);
   // newPosition.x += cos(locals.offset.y * 0.01) * 0.25;
-  output.position = position;
+  
+  // Simple rotation
+  var angle = sin(locals.time * 0.001);
+  var rotatedX =
+    (newPosition.x) * cos(angle) - (newPosition.y) * sin(angle);
+  var rotatedY =
+    (newPosition.x) * sin(angle) + (newPosition.y) * cos(angle);
+  newPosition.x = rotatedX;
+  newPosition.y = rotatedY;
+
+  output.position = newPosition;
+  // output.position = position;
   // output.color = color + locals.color;
   output.color = color;
   output.time = locals.time;

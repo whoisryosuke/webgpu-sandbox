@@ -5,6 +5,7 @@ export type Number4DArray = [...Number3DArray, number];
 export type Vertex = {
   position: Number4DArray;
   normals: Number4DArray;
+  tex_coords?: Number2DArray;
 };
 
 /**

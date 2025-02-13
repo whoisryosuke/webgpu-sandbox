@@ -21,5 +21,14 @@ export function generatePlane(scale: number = 1.0, scaleY: number = 1.0) {
   ];
 
   const vertices = createVertexBufferData(vertexData);
-  return { vertices };
+
+  const indices = new Uint32Array([
+    0,
+    1,
+    3,
+    0,
+    2,
+    3, // front
+  ]);
+  return { vertices, indices };
 }

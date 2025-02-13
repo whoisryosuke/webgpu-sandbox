@@ -1,6 +1,7 @@
 import "./style.css";
 import defaultShader from "./shaders/default.wgsl?raw";
 import { generatePlane } from "./primitives/plane";
+import { generateCube } from "./primitives/cube";
 
 async function main() {
   await init();
@@ -53,7 +54,11 @@ async function init() {
   // ]);
 
   // Generate vertices for a plane (a rectangle aka 2 tris)
-  const { vertices } = generatePlane(0.5);
+  // const { vertices, indices } = generatePlane(0.5);
+  const { vertices, indices } = generateCube(0.5);
+
+  console.log("vertices", vertices);
+  console.log("indices", indices);
 
   const vertexBuffer = device.createBuffer({
     label: "Vertex buffer",
@@ -62,30 +67,12 @@ async function init() {
   });
   device.queue.writeBuffer(vertexBuffer, 0, vertices);
 
-  const indexData = new Uint32Array([
-    0,
-    1,
-    3,
-    0,
-    2,
-    3, // front
-    // 4, 5, 6, 4, 6, 7, // back
-    // 8, 9, 10, 8, 10, 11, // top
-    // 12, 13, 14, 12, 14, 15, // bottom
-    // 16, 17, 18, 16, 18, 19, // right
-    // 20, 21, 22, 20, 22, 23, // left
-  ]);
-  //-0.5, -0.5, 0, 1, // 0
-  // 0.5, -0.5, 0, 1, // 1
-  // -0.5, 0.5, 0, 1, // 2
-  // 0.5, 0.5, 0, 1 // 3
-
   const indexBuffer = device.createBuffer({
     label: "Index buffer",
-    size: indexData.byteLength,
+    size: indices.byteLength,
     usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(indexBuffer, 0, indexData);
+  device.queue.writeBuffer(indexBuffer, 0, indices);
 
   // Setup shader
   const shaderModule = device.createShaderModule({
@@ -238,8 +225,8 @@ async function init() {
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, vertexBuffer);
     passEncoder.setIndexBuffer(indexBuffer, "uint32");
-    passEncoder.drawIndexed(indexData.length, 1);
-    // passEncoder.draw(3);
+    passEncoder.drawIndexed(indices.length, 1);
+    // passEncoder.draw(vertices.length);
     passEncoder.end();
     // Finish rendering
     device.queue.submit([commandEncoder.finish()]);
