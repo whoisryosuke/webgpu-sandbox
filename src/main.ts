@@ -3,6 +3,7 @@ import defaultShader from "./shaders/default.wgsl?raw";
 import { generatePlane } from "./primitives/plane";
 import { generateCube } from "./primitives/cube";
 import { mat4, Mat4 } from "wgpu-matrix";
+import Camera from "./core/camera";
 
 async function main() {
   await init();
@@ -56,7 +57,7 @@ async function init() {
 
   // Generate vertices for a plane (a rectangle aka 2 tris)
   // const { vertices, indices } = generatePlane(0.5);
-  const { vertices, indices } = generatePlane(0.5);
+  const { vertices, indices } = generateCube(0.5);
 
   console.log("vertices", vertices);
   console.log("indices", indices);
@@ -193,12 +194,9 @@ async function init() {
   uniformValues.set([0, 0], kOffsetOffset); // set the offset
   uniformValues.set([0], kTimeOffset); // set the time
 
-  // Create the uniform buffer (3 4x4 matrices = 192 bytes, aligned to 256)
-  const cameraUniformBuffer = device.createBuffer({
-    label: "Camera Uniform buffer",
-    size: 256,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
+  // Create the camera
+  const camera = new Camera(device);
+  camera.updateScreenSize(canvas.width, canvas.height);
 
   // Create a bind group to hold the uniforms
   const uniformBindGroup = device.createBindGroup({
@@ -214,7 +212,7 @@ async function init() {
       {
         binding: 1,
         resource: {
-          buffer: cameraUniformBuffer,
+          buffer: camera.buffer,
         },
       },
     ],
@@ -225,59 +223,6 @@ async function init() {
     format: "depth24plus",
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
-
-  const rotation = {
-    x: 0,
-    y: 0,
-    z: 0,
-  };
-  // Update rotation and matrices
-  function updateRotation(deltaTime: number) {
-    // Update rotation angles
-    rotation.x += deltaTime * 0.5;
-    rotation.y += deltaTime * 0.3;
-    rotation.z += deltaTime * 0.1;
-
-    // Create transformation matrices using wgpu-matrix
-    const modelMatrix = mat4.identity();
-
-    // Apply rotations in order: Z, Y, X
-    mat4.rotateZ(modelMatrix, rotation.z, modelMatrix);
-    mat4.rotateY(modelMatrix, rotation.y, modelMatrix);
-    mat4.rotateX(modelMatrix, rotation.x, modelMatrix);
-
-    // Create view matrix (camera looking at origin from distance)
-    const viewMatrix = mat4.lookAt(
-      [0, 0, 5], // eye position
-      [0, 0, 0], // target
-      [0, 1, 0] // up vector
-    );
-
-    // Create projection matrix (perspective)
-    const aspect = canvas.width / canvas.height;
-    const projectionMatrix = mat4.perspective(
-      Math.PI / 4, // fovy (45 degrees)
-      aspect, // aspect ratio
-      0.1, // near plane
-      100.0 // far plane
-    );
-
-    // Update uniform buffer with new matrices
-    updateUniformBuffer(modelMatrix, viewMatrix, projectionMatrix);
-  }
-
-  function updateUniformBuffer(model: Mat4, view: Mat4, projection: Mat4) {
-    // Create a buffer to hold all matrix data
-    const uniformData = new Float32Array(48); // 3 matrices * 16 floats each
-
-    // Copy matrices into the buffer
-    uniformData.set(model, 0); // offset 0
-    uniformData.set(view, 16); // offset 16
-    uniformData.set(projection, 32); // offset 32
-
-    // Write to GPU buffer
-    device.queue.writeBuffer(cameraUniformBuffer, 0, uniformData.buffer);
-  }
 
   let frameCount = 0;
   let prevTime = 0;
@@ -323,7 +268,7 @@ async function init() {
 
     // Update uniforms
     device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-    updateRotation(deltaTime);
+    camera.updateRotation(deltaTime, device);
 
     // Render
     passEncoder.setPipeline(renderPipeline);
