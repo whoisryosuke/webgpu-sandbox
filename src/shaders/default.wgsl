@@ -1,6 +1,9 @@
 struct VertexOut {
   @builtin(position) position : vec4f,
-  @location(0) color : vec4f
+  @location(0) world_position: vec3<f32>,
+  @location(1) color : vec4f,
+  @location(2) normal : vec3f,
+  @location(3) uv : vec2f
 }
 
 struct LocalUniforms {
@@ -9,8 +12,14 @@ struct LocalUniforms {
   offset: vec2f,
   time: f32
 };
+struct CameraUniforms {
+  model_matrix: mat4x4<f32>,
+  view_matrix: mat4x4<f32>,
+  projection_matrix: mat4x4<f32>,
+}
 
 @group(0) @binding(0) var<uniform> locals: LocalUniforms;
+@group(0) @binding(1) var<uniform> camera: CameraUniforms;
  
 @vertex
 fn vertex_main(
@@ -21,49 +30,27 @@ fn vertex_main(
 {
   var output : VertexOut;
   
-  // Start with a very simple transformation
-  var pos = vec4f(position * 0.5, 1.0); // Scale down the cube
+  // Apply scaling (keep Z coordinate)
+  // pos.x *= locals.scale.x;
+  // pos.y *= locals.scale.y;
   
-  // Simple rotation around Y axis
-  var angle = locals.time * 0.001;
-  var rotatedX = pos.x * cos(angle) - pos.z * sin(angle);
-  var rotatedY = pos.y * cos(angle) - pos.z * sin(angle);
-  var rotatedZ = pos.x * sin(angle) + pos.z * cos(angle);
-  pos.x = rotatedX;
-  pos.y = rotatedY;
-  pos.z = rotatedZ;
+
+  // Transform position through model, view, and projection matrices
+  let world_position = camera.model_matrix * vec4<f32>(position, 1.0);
+  let view_position = camera.view_matrix * world_position;
+  output.position = camera.projection_matrix * view_position;
   
-  output.position = pos;
+  output.world_position = world_position.xyz;
   
-  // Color each face differently based on normal
-  var color = vec3f(0.5, 0.5, 0.5); // Default gray
+  // Use normal for simple lighting-based coloring
+  // var lightDir = normalize(vec3f(1.0, 1.0, 1.0));
+  // var lightAmount = max(dot(normal, lightDir), 0.3); // Minimum ambient
+  // output.color = vec4f(abs(normal) * lightAmount, 1.0);
+  // output.color = vec4f(uv, 1.0, 1.0) * vec4f(normal, 1.0);
+  output.color = vec4f(uv, 1.0, 1.0);
   
-  // Check for right face (+X)
-  if (normal.x > 0.9) {
-    color = vec3f(1.0, 0.0, 0.0); // Red
-  }
-  // Check for left face (-X)  
-  else if (normal.x < -0.9) {
-    color = vec3f(0.0, 1.0, 1.0); // Cyan
-  }
-  // Check for top face (+Y)
-  else if (normal.y > 0.9) {
-    color = vec3f(0.0, 1.0, 0.0); // Green
-  }
-  // Check for bottom face (-Y)
-  else if (normal.y < -0.9) {
-    color = vec3f(1.0, 0.0, 1.0); // Magenta
-  }
-  // Check for front face (+Z)
-  else if (normal.z > 0.9) {
-    color = vec3f(0.0, 0.0, 1.0); // Blue
-  }
-  // Check for back face (-Z)
-  else if (normal.z < -0.9) {
-    color = vec3f(1.0, 1.0, 0.0); // Yellow
-  }
-  
-  output.color = vec4f(color, 1.0);
+  output.normal = normal;
+  output.uv = uv;
   
   return output;
 }

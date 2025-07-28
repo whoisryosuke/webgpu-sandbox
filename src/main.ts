@@ -2,6 +2,7 @@ import "./style.css";
 import defaultShader from "./shaders/default.wgsl?raw";
 import { generatePlane } from "./primitives/plane";
 import { generateCube } from "./primitives/cube";
+import { mat4, Mat4 } from "wgpu-matrix";
 
 async function main() {
   await init();
@@ -109,17 +110,24 @@ async function init() {
 
   // Ideally we'd setup a bind group layout for our bind group
   // but since the render pipeline is set to `auto`, we don't need it
-  // const bindGroupLayout = device.createBindGroupLayout({
-  //   entries: [
-  //     {
-  //       binding: 0,
-  //       visibility: GPUShaderStage.VERTEX,
-  //       buffer: {
-  //         type: "uniform",
-  //       },
-  //     },
-  //   ],
-  // });
+  const bindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "uniform",
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "uniform",
+        },
+      },
+    ],
+  });
 
   // Render pipeline
   const pipelineDescriptor: GPURenderPipelineDescriptor = {
@@ -148,7 +156,10 @@ async function init() {
       format: "depth24plus",
     },
     // This determines the bind group layout automatically by analyzing the shader modules
-    layout: "auto",
+    // layout: "auto",
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [bindGroupLayout],
+    }),
   };
   const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
@@ -182,6 +193,13 @@ async function init() {
   uniformValues.set([0, 0], kOffsetOffset); // set the offset
   uniformValues.set([0], kTimeOffset); // set the time
 
+  // Create the uniform buffer (3 4x4 matrices = 192 bytes, aligned to 256)
+  const cameraUniformBuffer = device.createBuffer({
+    label: "Camera Uniform buffer",
+    size: 256,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
   // Create a bind group to hold the uniforms
   const uniformBindGroup = device.createBindGroup({
     label: "Local Uniforms",
@@ -193,6 +211,12 @@ async function init() {
           buffer: uniformBuffer,
         },
       },
+      {
+        binding: 1,
+        resource: {
+          buffer: cameraUniformBuffer,
+        },
+      },
     ],
   });
 
@@ -202,7 +226,61 @@ async function init() {
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
+  const rotation = {
+    x: 0,
+    y: 0,
+    z: 0,
+  };
+  // Update rotation and matrices
+  function updateRotation(deltaTime: number) {
+    // Update rotation angles
+    rotation.x += deltaTime * 0.5;
+    rotation.y += deltaTime * 0.3;
+    rotation.z += deltaTime * 0.1;
+
+    // Create transformation matrices using wgpu-matrix
+    const modelMatrix = mat4.identity();
+
+    // Apply rotations in order: Z, Y, X
+    mat4.rotateZ(modelMatrix, rotation.z, modelMatrix);
+    mat4.rotateY(modelMatrix, rotation.y, modelMatrix);
+    mat4.rotateX(modelMatrix, rotation.x, modelMatrix);
+
+    // Create view matrix (camera looking at origin from distance)
+    const viewMatrix = mat4.lookAt(
+      [0, 0, 5], // eye position
+      [0, 0, 0], // target
+      [0, 1, 0] // up vector
+    );
+
+    // Create projection matrix (perspective)
+    const aspect = canvas.width / canvas.height;
+    const projectionMatrix = mat4.perspective(
+      Math.PI / 4, // fovy (45 degrees)
+      aspect, // aspect ratio
+      0.1, // near plane
+      100.0 // far plane
+    );
+
+    // Update uniform buffer with new matrices
+    updateUniformBuffer(modelMatrix, viewMatrix, projectionMatrix);
+  }
+
+  function updateUniformBuffer(model: Mat4, view: Mat4, projection: Mat4) {
+    // Create a buffer to hold all matrix data
+    const uniformData = new Float32Array(48); // 3 matrices * 16 floats each
+
+    // Copy matrices into the buffer
+    uniformData.set(model, 0); // offset 0
+    uniformData.set(view, 16); // offset 16
+    uniformData.set(projection, 32); // offset 32
+
+    // Write to GPU buffer
+    device.queue.writeBuffer(cameraUniformBuffer, 0, uniformData.buffer);
+  }
+
   let frameCount = 0;
+  let prevTime = 0;
 
   const render = (timestamp: number) => {
     // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
@@ -214,6 +292,10 @@ async function init() {
     uniformValues[kScaleOffset + 1] = 0.5;
     uniformValues[kOffsetOffset + 1] = frameCount;
     uniformValues[kTimeOffset + 1] = timestamp;
+
+    // Calculate delta time in seconds
+    const deltaTime = (timestamp - prevTime) / 1000;
+    prevTime = timestamp;
 
     // console.log("time / frame", timeUniformData, frameCount, uniformValues);
 
@@ -241,13 +323,13 @@ async function init() {
 
     // Update uniforms
     device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+    updateRotation(deltaTime);
 
     // Render
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, vertexBuffer);
     passEncoder.setIndexBuffer(indexBuffer, "uint16");
-    console.log("index count", indices.length);
     passEncoder.drawIndexed(indices.length, 1);
     // passEncoder.draw(vertices.length);
     passEncoder.end();
