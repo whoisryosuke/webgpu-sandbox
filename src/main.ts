@@ -87,15 +87,19 @@ async function init() {
         {
           shaderLocation: 0,
           offset: 0,
-          format: "float32x4",
+          format: "float32x3",
         },
-        // Color
+        // Normal
         {
           shaderLocation: 1,
-          // This offset represents the 4x4 value from above
-          // which comes from our 4D position (XYZA)
-          offset: 16,
-          format: "float32x4",
+          offset: 12,
+          format: "float32x3",
+        },
+        // UV
+        {
+          shaderLocation: 2,
+          offset: 24,
+          format: "float32x2",
         },
       ],
       arrayStride: 32,
@@ -136,6 +140,12 @@ async function init() {
     primitive: {
       // topology: "point-list",
       topology: "triangle-list",
+    },
+    // Add depth testing
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: "less",
+      format: "depth24plus",
     },
     // This determines the bind group layout automatically by analyzing the shader modules
     layout: "auto",
@@ -186,6 +196,12 @@ async function init() {
     ],
   });
 
+  const depthTexture = device.createTexture({
+    size: [canvas.width, canvas.height],
+    format: "depth24plus",
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+
   let frameCount = 0;
 
   const render = (timestamp: number) => {
@@ -214,6 +230,12 @@ async function init() {
           view: context.getCurrentTexture().createView(),
         } as GPURenderPassColorAttachment,
       ],
+      depthStencilAttachment: {
+        view: depthTexture.createView(),
+        depthClearValue: 1.0,
+        depthLoadOp: "clear",
+        depthStoreOp: "store",
+      },
     };
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
@@ -224,7 +246,8 @@ async function init() {
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, vertexBuffer);
-    passEncoder.setIndexBuffer(indexBuffer, "uint32");
+    passEncoder.setIndexBuffer(indexBuffer, "uint16");
+    console.log("index count", indices.length);
     passEncoder.drawIndexed(indices.length, 1);
     // passEncoder.draw(vertices.length);
     passEncoder.end();
