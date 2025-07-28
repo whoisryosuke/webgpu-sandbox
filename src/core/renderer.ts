@@ -6,6 +6,7 @@ import { mat4, vec4 } from "wgpu-matrix";
 export default class WebGPURenderer {
   device?: GPUDevice;
   camera?: Camera;
+  multisampleTexture?: GPUTexture;
 
   async init() {
     // Setup adapter and device
@@ -151,6 +152,10 @@ export default class WebGPURenderer {
         format: "depth24plus",
       },
 
+      multisample: {
+        count: 4,
+      },
+
       // This determines the bind group layout automatically by analyzing the shader modules
       // layout: "auto",
 
@@ -256,17 +261,45 @@ export default class WebGPURenderer {
       ],
     });
 
+    const SAMPLE_COUNT = 4;
     const depthTexture = this.device.createTexture({
       size: [canvas.width, canvas.height],
       format: "depth24plus",
+      sampleCount: SAMPLE_COUNT,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
+
+    // Multi-sampling / Anti-aliasing
+    // Get the current texture from the canvas context
+    const canvasTexture = context.getCurrentTexture();
+
+    // If the multisample texture doesn't exist or
+    // is the wrong size then make a new one.
+    if (
+      !this.multisampleTexture ||
+      this.multisampleTexture.width !== canvasTexture.width ||
+      this.multisampleTexture.height !== canvasTexture.height
+    ) {
+      // If we have an existing multisample texture destroy it.
+      if (this.multisampleTexture) {
+        this.multisampleTexture.destroy();
+      }
+
+      // Create a new multisample texture that matches our
+      // canvas's size
+      this.multisampleTexture = this.device.createTexture({
+        format: canvasTexture.format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        size: [canvasTexture.width, canvasTexture.height],
+        sampleCount: SAMPLE_COUNT,
+      });
+    }
 
     let frameCount = 0;
     let prevTime = 0;
 
     const render = (timestamp: number) => {
-      if (!this.device || !this.camera) return;
+      if (!this.device || !this.camera || !this.multisampleTexture) return;
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
       // const timeUniformData = Date.now();
@@ -293,7 +326,8 @@ export default class WebGPURenderer {
             loadValue: [0.5, 0, 1, 1],
             loadOp: "clear",
             storeOp: "store",
-            view: context.getCurrentTexture().createView(),
+            view: this.multisampleTexture.createView(),
+            resolveTarget: context.getCurrentTexture().createView(),
           } as GPURenderPassColorAttachment,
         ],
         depthStencilAttachment: {
