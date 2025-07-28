@@ -20,15 +20,20 @@ struct CameraUniforms {
 
 @group(0) @binding(0) var<uniform> locals: LocalUniforms;
 @group(0) @binding(1) var<uniform> camera: CameraUniforms;
+@group(0) @binding(2) var<storage, read> instances : array<mat4x4<f32>>;
  
 @vertex
 fn vertex_main(
+  @builtin(vertex_index) vertexIndex: u32,
+  @builtin(instance_index) instanceIndex: u32,
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
   @location(2) uv: vec2f
 ) -> VertexOut
 {
   var output : VertexOut;
+
+  
   
   // Apply scaling (keep Z coordinate)
   // pos.x *= locals.scale.x;
@@ -36,7 +41,15 @@ fn vertex_main(
   
 
   // Transform position through model, view, and projection matrices
-  let world_position = camera.model_matrix * vec4<f32>(position, 1.0);
+  // let transformedPosition = instances[0] * vec4<f32>(position, 1.0); // Apply instance matrix
+  // let world_position = camera.model_matrix * transformedPosition;
+
+  let instance_position = instances[instanceIndex] * vec4<f32>(position, 1.0);
+  let world_position = camera.model_matrix * instance_position;
+
+
+  // let world_position = camera.model_matrix * vec4<f32>(position, 1.0);
+  
   let view_position = camera.view_matrix * world_position;
   output.position = camera.projection_matrix * view_position;
   

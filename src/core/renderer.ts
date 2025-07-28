@@ -1,6 +1,7 @@
 import defaultShader from "../shaders/default.wgsl?raw";
 import { generateCube } from "../primitives/cube";
 import Camera from "./camera";
+import { mat4, vec4 } from "wgpu-matrix";
 
 export default class WebGPURenderer {
   device?: GPUDevice;
@@ -43,7 +44,7 @@ export default class WebGPURenderer {
     // Setup vertex buffer
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
-    const { vertices, indices } = generateCube(0.5);
+    const { vertices, indices } = generateCube(0.1);
 
     console.log("vertices", vertices);
     console.log("indices", indices);
@@ -111,6 +112,13 @@ export default class WebGPURenderer {
           visibility: GPUShaderStage.VERTEX,
           buffer: {
             type: "uniform",
+          },
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+            type: "read-only-storage",
           },
         },
       ],
@@ -187,6 +195,41 @@ export default class WebGPURenderer {
     this.camera = new Camera(this.device);
     this.camera.updateScreenSize(canvas.width, canvas.height);
 
+    // Instance uniforms
+    // Update the uniform buffer with instance matrices (translation)
+
+    const instanceCount = 500;
+    const floatsPerInstance = 16; // mat4 + color
+    const instanceUniformValue = new Float32Array(
+      instanceCount * floatsPerInstance
+    );
+
+    for (let i = 0; i < instanceCount; i++) {
+      const offset = i * floatsPerInstance;
+
+      const model = mat4.translation([
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+      ]);
+
+      instanceUniformValue.set(model, offset);
+    }
+
+    // const translationMatrices = new Float32Array();
+    // for (const position of instancePositions) {
+    //   const matrix = mat4.create();
+    //   mat4.translation(position); // Create a translation matrix for each instance
+    //   translationMatrices.push(...matrix); // Flatten the matrix into an array
+    // }
+    // const instanceUniformValue = new Float32Array(translationMatrices);
+
+    const instanceUniformBuffer = this.device.createBuffer({
+      label: "Instances Uniform buffer",
+      size: instanceUniformValue.byteLength, // Size for translation matrix per instance,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
     // Create a bind group to hold the uniforms
     const uniformBindGroup = this.device.createBindGroup({
       label: "Local Uniforms",
@@ -202,6 +245,12 @@ export default class WebGPURenderer {
           binding: 1,
           resource: {
             buffer: this.camera.buffer,
+          },
+        },
+        {
+          binding: 2,
+          resource: {
+            buffer: instanceUniformBuffer,
           },
         },
       ],
@@ -259,13 +308,18 @@ export default class WebGPURenderer {
       // Update uniforms
       this.device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
       this.camera.updateRotation(deltaTime, this.device);
+      this.device.queue.writeBuffer(
+        instanceUniformBuffer,
+        0,
+        instanceUniformValue
+      );
 
       // Render
       passEncoder.setPipeline(renderPipeline);
       passEncoder.setBindGroup(0, uniformBindGroup);
       passEncoder.setVertexBuffer(0, vertexBuffer);
       passEncoder.setIndexBuffer(indexBuffer, "uint16");
-      passEncoder.drawIndexed(indices.length, 1);
+      passEncoder.drawIndexed(indices.length, instanceCount);
       // passEncoder.draw(vertices.length);
       passEncoder.end();
       // Finish rendering
