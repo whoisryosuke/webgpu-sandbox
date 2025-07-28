@@ -56,7 +56,7 @@ async function init() {
 
   // Generate vertices for a plane (a rectangle aka 2 tris)
   // const { vertices, indices } = generatePlane(0.5);
-  const { vertices, indices } = generateCube(0.5);
+  const { vertices, indices } = generatePlane(0.5);
 
   console.log("vertices", vertices);
   console.log("indices", indices);

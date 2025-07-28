@@ -3,9 +3,9 @@ export type Number3DArray = [...Number2DArray, number];
 export type Number4DArray = [...Number3DArray, number];
 
 export type Vertex = {
-  position: Number4DArray;
-  normals: Number4DArray;
-  tex_coords?: Number2DArray;
+  position: Number3DArray;
+  normals: Number3DArray;
+  uv: Number2DArray;
 };
 
 /**
@@ -16,7 +16,7 @@ export type Vertex = {
  */
 export function createVertexBufferData(vertices: Vertex[]) {
   const data = vertices.reduce((merge, vertex) => {
-    return [...merge, ...vertex.position, ...vertex.normals];
+    return [...merge, ...vertex.position, ...vertex.normals, ...vertex.uv];
   }, [] as number[]);
 
   return new Float32Array(data);

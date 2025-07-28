@@ -3,26 +3,30 @@ import { createVertexBufferData, Vertex } from "../core/vertex";
 export function generatePlane(scale: number = 1.0, scaleY: number = 1.0) {
   const vertexData = [
     {
-      position: [-scale, -scale, 0.0, 1.0],
-      normals: [1, 0, 0, 1],
+      position: [-scale, -scale, 0.0],
+      normals: [1, 0, 0],
+      uv: [0, 0],
     } as Vertex,
     {
-      position: [scale, -scale, 0.0, 1.0],
-      normals: [0, 1, 0, 1],
+      position: [scale, -scale, 0.0],
+      normals: [0, 1, 0],
+      uv: [0, 1],
     } as Vertex,
     {
-      position: [-scale, scale, 0.0, 1.0],
-      normals: [0, 0, 1, 1],
+      position: [-scale, scale, 0.0],
+      normals: [0, 0, 1],
+      uv: [1, 1],
     } as Vertex,
     {
-      position: [scale, scale, 0.0, 1.0],
-      normals: [0, 0.5, 0.5, 1],
+      position: [scale, scale, 0.0],
+      normals: [0, 0.5, 0.5],
+      uv: [1, 0],
     } as Vertex,
   ];
 
   const vertices = createVertexBufferData(vertexData);
 
-  const indices = new Uint32Array([
+  const indices = new Uint16Array([
     0,
     1,
     3,
