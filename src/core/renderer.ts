@@ -4,11 +4,14 @@ import Camera from "./camera";
 import { mat4, vec4 } from "wgpu-matrix";
 import DebugUIInstance from "./debug-ui";
 import { TpChangeEvent } from "tweakpane";
+import ParticleSystem from "./particle-system";
 
 export default class WebGPURenderer {
   device?: GPUDevice;
   camera?: Camera;
   multisampleTexture?: GPUTexture;
+
+  particleSystem?: ParticleSystem;
 
   async init() {
     // Setup adapter and device
@@ -300,6 +303,9 @@ export default class WebGPURenderer {
       });
     }
 
+    // Create particle system
+    this.particleSystem = new ParticleSystem(this.device);
+
     let frameCount = 0;
     let prevTime = 0;
 
@@ -324,6 +330,9 @@ export default class WebGPURenderer {
       // Create command encoder (that runs render tasks)
       const commandEncoder = this.device.createCommandEncoder();
 
+      // Compute shaders
+      this.particleSystem?.compute(commandEncoder);
+
       const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
       const renderPassDescriptor: GPURenderPassDescriptor = {
         colorAttachments: [
@@ -344,9 +353,12 @@ export default class WebGPURenderer {
       };
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
+      // Render particles
+      this.particleSystem?.render(passEncoder);
+
       // Update uniforms
       this.device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-      this.camera.updateRotation(deltaTime, this.device);
+      this.camera.updateRotation(deltaTime);
       this.device.queue.writeBuffer(
         instanceUniformBuffer,
         0,
