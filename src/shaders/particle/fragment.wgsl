@@ -10,9 +10,9 @@ fn main(input: FragmentInput) -> @location(0) vec4<f32> {
   let dist = length(center);
   
   // Circular particle shape
-  if (dist > 0.5) {
-    discard;
-  }
+  // if (dist > 0.5) {
+  //   discard;
+  // }
   
   // let alpha = (1.0 - dist * 2.0) * input.life;
   // let color = vec3<f32>(
@@ -20,9 +20,7 @@ fn main(input: FragmentInput) -> @location(0) vec4<f32> {
   //   0.3 + input.particleSize * 10.0,
   //   0.8 - input.life * 0.3
   // );
-  let color = vec3<f32>(
-    0.0,
-    0.2,
+  let color = vec3<f32>(input.uv,
     1.0
   );
   let alpha = 1.0;

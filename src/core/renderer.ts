@@ -304,7 +304,7 @@ export default class WebGPURenderer {
     }
 
     // Create particle system
-    this.particleSystem = new ParticleSystem(this.device);
+    this.particleSystem = new ParticleSystem(this.device, this.camera);
 
     let frameCount = 0;
     let prevTime = 0;
@@ -374,7 +374,7 @@ export default class WebGPURenderer {
       // passEncoder.setVertexBuffer(0, vertexBuffer);
       // passEncoder.setIndexBuffer(indexBuffer, "uint16");
       // passEncoder.drawIndexed(indices.length, instanceCount);
-      // passEncoder.draw(vertices.length);
+
       passEncoder.end();
       // Finish rendering
       this.device.queue.submit([commandEncoder.finish()]);

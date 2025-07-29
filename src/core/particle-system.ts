@@ -1,6 +1,8 @@
 import computeShaderCode from "../shaders/particle/compute.wgsl?raw";
 import vertexShaderCode from "../shaders/particle/vertex.wgsl?raw";
 import fragmentShaderCode from "../shaders/particle/fragment.wgsl?raw";
+import { generateCube } from "../primitives/cube";
+import Camera from "./camera";
 
 const MAX_PARTICLES = 100;
 const PARTICLE_BYTE_OFFSET = 48; // vec3 * 3 + f32 + padding
@@ -15,13 +17,16 @@ export default class ParticleSystem {
   particleBuffer: GPUBuffer;
   uniformBuffer: GPUBuffer;
   vertexBuffer: GPUBuffer;
+  indexBuffer: GPUBuffer;
   // particleCountBuffer: GPUBuffer;
   computePipeline: GPUComputePipeline;
   renderPipeline: GPURenderPipeline;
   computeBindGroup: GPUBindGroup;
   renderBindGroup: GPUBindGroup;
 
-  constructor(device: GPUDevice) {
+  indexCount: number = 0;
+
+  constructor(device: GPUDevice, camera: Camera) {
     this.device = device;
     this.particleBuffer = device.createBuffer({
       label: "Particles buffer",
@@ -54,13 +59,22 @@ export default class ParticleSystem {
       ...[1, 1, 1, 1],
     ]);
 
+    const { vertices, indices } = generateCube(0.1);
+    this.indexCount = indices.length;
+
     this.vertexBuffer = this.device.createBuffer({
-      size: 96,
+      label: "Vertex buffer",
+      size: vertices.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-      mappedAtCreation: true,
     });
-    new Float32Array(this.vertexBuffer.getMappedRange()).set(quadVertices);
-    this.vertexBuffer.unmap();
+    this.device.queue.writeBuffer(this.vertexBuffer, 0, vertices);
+
+    this.indexBuffer = this.device.createBuffer({
+      label: "Index buffer",
+      size: indices.byteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.indexBuffer, 0, indices);
 
     const computeBindGroupLayout = device.createBindGroupLayout({
       entries: [
@@ -83,6 +97,11 @@ export default class ParticleSystem {
           visibility: GPUShaderStage.VERTEX,
           buffer: { type: "read-only-storage" },
         },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: { type: "uniform" },
+        },
       ],
     });
 
@@ -96,7 +115,10 @@ export default class ParticleSystem {
 
     this.renderBindGroup = device.createBindGroup({
       layout: renderBindGroupLayout,
-      entries: [{ binding: 0, resource: { buffer: this.particleBuffer } }],
+      entries: [
+        { binding: 0, resource: { buffer: this.particleBuffer } },
+        { binding: 1, resource: { buffer: camera.buffer } },
+      ],
     });
 
     this.computePipeline = device.createComputePipeline({
@@ -109,6 +131,34 @@ export default class ParticleSystem {
       },
     });
 
+    // Setup vertex buffer descriptors
+    const vertexBufferDescriptor: GPUVertexState["buffers"] = [
+      {
+        attributes: [
+          // Position
+          {
+            shaderLocation: 0,
+            offset: 0,
+            format: "float32x3",
+          },
+          // Normal
+          {
+            shaderLocation: 1,
+            offset: 12,
+            format: "float32x3",
+          },
+          // UV
+          {
+            shaderLocation: 2,
+            offset: 24,
+            format: "float32x2",
+          },
+        ],
+        arrayStride: 32,
+        stepMode: "vertex",
+      },
+    ];
+
     this.renderPipeline = device.createRenderPipeline({
       layout: device.createPipelineLayout({
         bindGroupLayouts: [renderBindGroupLayout],
@@ -116,15 +166,7 @@ export default class ParticleSystem {
       vertex: {
         module: device.createShaderModule({ code: vertexShaderCode }), // 'vertex.wgsl'
         entryPoint: "main",
-        buffers: [
-          {
-            arrayStride: 16, // 4 floats * 4 bytes
-            attributes: [
-              { shaderLocation: 0, offset: 0, format: "float32x2" }, // pos (2D)
-              { shaderLocation: 1, offset: 8, format: "float32x2" }, // uv
-            ],
-          },
-        ],
+        buffers: vertexBufferDescriptor,
       },
       fragment: {
         module: device.createShaderModule({ code: fragmentShaderCode }), // 'fragment.wgsl'
@@ -183,7 +225,8 @@ export default class ParticleSystem {
     renderPass.setPipeline(this.renderPipeline);
     renderPass.setBindGroup(0, this.renderBindGroup);
     renderPass.setVertexBuffer(0, this.vertexBuffer);
-    renderPass.draw(6, MAX_PARTICLES);
+    renderPass.setIndexBuffer(this.indexBuffer, "uint16");
+    renderPass.drawIndexed(this.indexCount, MAX_PARTICLES);
   }
 
   spawn() {
