@@ -4,14 +4,14 @@ import fragmentShaderCode from "../shaders/particle/fragment.wgsl?raw";
 import { generateCube } from "../primitives/cube";
 import Camera from "./camera";
 
-const MAX_PARTICLES = 100;
-const PARTICLE_BYTE_OFFSET = 48; // vec3 * 3 + f32 + padding
+const MAX_PARTICLES = 1000;
+const PARTICLE_BYTE_OFFSET = 32; // 24 bytes per particle (vec3<f32> * 2)
+const BUFFER_SIZE = MAX_PARTICLES * PARTICLE_BYTE_OFFSET;
+const ARRAY_SIZE = MAX_PARTICLES * 8; // Divide by 4 because each element is a float32.
 
 export default class ParticleSystem {
   device: GPUDevice;
-  particles: Float32Array = new Float32Array(
-    MAX_PARTICLES * PARTICLE_BYTE_OFFSET
-  ).fill(0);
+  particles: Float32Array = new Float32Array(ARRAY_SIZE).fill(0);
   currentIndex: number = 0;
 
   particleBuffer: GPUBuffer;
@@ -191,7 +191,8 @@ export default class ParticleSystem {
       },
     });
 
-    const newParticles = this.generateRandomPositions(10);
+    // const newParticles = this.generateRandomPositions(MAX_PARTICLES);
+    const newParticles = this.generateGridPositions(MAX_PARTICLES);
     this.device.queue.writeBuffer(this.particleBuffer, 0, newParticles.buffer);
   }
 
@@ -202,13 +203,66 @@ export default class ParticleSystem {
         Math.random() * 2 - 1,
         Math.random() * 2 - 1,
         Math.random() * 2 - 1,
-        // Velocity
-        0,
-        Math.random() * 2 - 1,
-        0,
       ];
       return [...merge, ...particle];
     }, [] as number[]);
+
+    return new Float32Array(particles);
+  }
+
+  // generateGridPositions(num: number) {
+  //   // Calculate the closest perfect square to maxElements
+  //   let sideLength = Math.floor(Math.sqrt(num));
+
+  //   let particles: number[] = [];
+  //   for (let x = 0; x < sideLength; x++) {
+  //     for (let y = 0; y < sideLength; y++) {
+  //       const realX = (x / sideLength) * 4;
+  //       const realY = (y / sideLength) * 4;
+  //       const particle = [
+  //         // Position
+  //         realX,
+  //         realY,
+  //         0,
+  //         // Velocity
+  //         0,
+  //         Math.random() * 2 - 1,
+  //         0,
+  //       ];
+  //       particles = [...particles, ...particle];
+  //     }
+  //   }
+
+  //   console.log("grid pos", particles.length / 6, num);
+
+  //   return new Float32Array(particles);
+  // }
+
+  generateGridPositions(num: number) {
+    // Calculate the closest perfect square to maxElements
+    let sideLength = Math.floor(Math.sqrt(num));
+
+    let particles: number[] = [];
+    for (let x = 0; x < num; x++) {
+      const realX = (x % sideLength) / sideLength;
+      const y = x / sideLength;
+      const realY = y / sideLength;
+      const particle = [
+        // Position
+        realX,
+        realY,
+        0,
+        0,
+        // Velocity
+        0,
+        0,
+        0,
+        0,
+      ];
+      particles = [...particles, ...particle];
+    }
+
+    console.log("grid pos", particles.length / 6, num);
 
     return new Float32Array(particles);
   }
