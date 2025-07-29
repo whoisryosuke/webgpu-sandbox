@@ -14,16 +14,16 @@ fn main(@builtin(global_invocation_id) id : vec3<u32>) {
 
   var p = particles[i];
 
-  // Simple gravity
-  let gravity = vec3<f32>(0.0, -0.0005, 0.0);
-  p.vel += gravity;
-  p.pos += p.vel;
+  // // Simple gravity
+  // let gravity = vec3<f32>(0.0, -0.0005, 0.0);
+  // p.vel += gravity;
+  // p.pos += p.vel;
 
-  // Bounce off edges
-  if (p.pos.y < -1.0) {
-    p.pos.y = -1.0;
-    p.vel.y *= -0.8;
-  }
+  // // Bounce off edges
+  // if (p.pos.y < -1.0) {
+  //   p.pos.y = -1.0;
+  //   p.vel.y *= -0.8;
+  // }
 
   particles[i] = p;
 }

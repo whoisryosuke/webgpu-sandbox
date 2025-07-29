@@ -311,6 +311,9 @@ export default class WebGPURenderer {
 
     const render = (timestamp: number) => {
       if (!this.device || !this.camera || !this.multisampleTexture) return;
+
+      // if (frameCount % 1000) this.particleSystem?.spawn();
+
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
       // const timeUniformData = Date.now();
