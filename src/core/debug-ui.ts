@@ -1,4 +1,10 @@
-import { Bindable, BindingParams, FolderApi } from "@tweakpane/core";
+import {
+  Bindable,
+  BindingApi,
+  BindingParams,
+  FolderApi,
+  TpChangeEvent,
+} from "@tweakpane/core";
 import { Pane } from "tweakpane";
 
 class DebugUI {
@@ -15,35 +21,41 @@ class DebugUI {
       title: name,
     });
     this.folders.set(name, section);
+
+    return section;
   }
 
-  addParam(
+  add(
     folderName: string,
     params: Bindable,
     paramName: string,
-    options: BindingParams = {}
+    options: BindingParams = {},
+    handler?: (e: { value: any }) => void
   ) {
-    const ui = this.folders.get(folderName);
-    if (!ui) return;
+    let ui = this.folders.get(folderName);
+    if (!ui) {
+      ui = this.createSection(folderName);
+    }
 
-    ui.addBinding(params, paramName, options);
+    const binding = ui.addBinding(params, paramName, options);
+    if (handler) binding.on("change", handler);
   }
 
-  addSlider(
+  slider(
     folderName: string,
     params: Bindable,
     paramName: string,
     config: { min: number; max: number; step: number }
   ) {
-    this.addParam(folderName, params, paramName, config);
+    this.add(folderName, params, paramName, config);
   }
-  addDropdown(
+  dropdown(
     folderName: string,
     params: Bindable,
     paramName: string,
     options: Record<string, string>
   ) {
-    this.addParam(folderName, params, paramName, { options });
+    this.add(folderName, params, paramName, { options });
   }
 }
 

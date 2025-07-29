@@ -10,7 +10,7 @@ async function main() {
     y: 0,
   };
   DebugUIInstance.createSection("Test");
-  DebugUIInstance.addSlider("Test", test, "x", {
+  DebugUIInstance.slider("Test", test, "x", {
     min: 0,
     max: 100,
     step: 1,

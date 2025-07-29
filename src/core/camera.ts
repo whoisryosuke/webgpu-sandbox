@@ -1,4 +1,6 @@
-import { Mat4, mat4 } from "wgpu-matrix";
+import { Mat4, mat4, Vec3 } from "wgpu-matrix";
+import { Number3DArray } from "./vertex";
+import DebugUIInstance from "./debug-ui";
 
 export default class Camera {
   buffer: GPUBuffer;
@@ -12,6 +14,12 @@ export default class Camera {
     height: 0,
   };
 
+  // The "eye"
+  position: Number3DArray;
+  viewMatrix: Float32Array;
+  modelMatrix: Float32Array;
+  projectionMatrix: Float32Array;
+
   constructor(device: GPUDevice) {
     // Create the uniform buffer (3 4x4 matrices = 192 bytes, aligned to 256)
     this.buffer = device.createBuffer({
@@ -19,11 +27,52 @@ export default class Camera {
       size: 256,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+    this.position = [0, 0, 5];
+    this.viewMatrix = new Float32Array();
+    // Create transformation matrices using wgpu-matrix
+    this.modelMatrix = mat4.identity();
+    this.projectionMatrix = new Float32Array();
   }
 
   updateScreenSize(width: number, height: number) {
     this.screenSize.width = width;
     this.screenSize.height = height;
+  }
+
+  updateViewMatrix() {
+    // Create view matrix (camera looking at origin from distance)
+    this.viewMatrix = mat4.lookAt(
+      this.position, // eye position
+      [0, 0, 0], // target
+      [0, 1, 0] // up vector
+    );
+  }
+
+  updateProjectionMatrix() {
+    // Create projection matrix (perspective)
+    const aspect = this.screenSize.width / this.screenSize.height;
+    this.projectionMatrix = mat4.perspective(
+      Math.PI / 4, // fovy (45 degrees)
+      aspect, // aspect ratio
+      0.1, // near plane
+      100.0 // far plane
+    );
+  }
+
+  updatePosition(position: Number3DArray) {
+    this.position = position;
+
+    // Update buffer
+  }
+
+  updateModelMatrix() {
+    // Create transformation matrices using wgpu-matrix
+    this.modelMatrix = mat4.identity();
+
+    // Apply rotations in order: Z, Y, X
+    mat4.rotateZ(this.modelMatrix, this.rotation.z, this.modelMatrix);
+    mat4.rotateY(this.modelMatrix, this.rotation.y, this.modelMatrix);
+    mat4.rotateX(this.modelMatrix, this.rotation.x, this.modelMatrix);
   }
 
   // Update rotation and matrices
@@ -33,32 +82,21 @@ export default class Camera {
     this.rotation.y += deltaTime * 0.3;
     this.rotation.z += deltaTime * 0.1;
 
-    // Create transformation matrices using wgpu-matrix
-    const modelMatrix = mat4.identity();
+    // Update model view matrix with new rotation data
+    this.updateModelMatrix();
 
-    // Apply rotations in order: Z, Y, X
-    mat4.rotateZ(modelMatrix, this.rotation.z, modelMatrix);
-    mat4.rotateY(modelMatrix, this.rotation.y, modelMatrix);
-    mat4.rotateX(modelMatrix, this.rotation.x, modelMatrix);
+    // Update view matrix
+    this.updateViewMatrix();
 
-    // Create view matrix (camera looking at origin from distance)
-    const viewMatrix = mat4.lookAt(
-      [0, 0, 5], // eye position
-      [0, 0, 0], // target
-      [0, 1, 0] // up vector
-    );
-
-    // Create projection matrix (perspective)
-    const aspect = this.screenSize.width / this.screenSize.height;
-    const projectionMatrix = mat4.perspective(
-      Math.PI / 4, // fovy (45 degrees)
-      aspect, // aspect ratio
-      0.1, // near plane
-      100.0 // far plane
-    );
+    this.updateProjectionMatrix();
 
     // Update uniform buffer with new matrices
-    this.updateUniformBuffer(device, modelMatrix, viewMatrix, projectionMatrix);
+    this.updateUniformBuffer(
+      device,
+      this.modelMatrix,
+      this.viewMatrix,
+      this.projectionMatrix
+    );
   }
 
   updateUniformBuffer(

@@ -2,6 +2,8 @@ import defaultShader from "../shaders/default.wgsl?raw";
 import { generateCube } from "../primitives/cube";
 import Camera from "./camera";
 import { mat4, vec4 } from "wgpu-matrix";
+import DebugUIInstance from "./debug-ui";
+import { TpChangeEvent } from "tweakpane";
 
 export default class WebGPURenderer {
   device?: GPUDevice;
@@ -199,6 +201,29 @@ export default class WebGPURenderer {
     // Create the camera
     this.camera = new Camera(this.device);
     this.camera.updateScreenSize(canvas.width, canvas.height);
+
+    // Add Debug UI
+    // Since we use flat Float32Array for position,
+    // we need to use an "onChange" callback to map it to XYZ object
+    const handler = (e: { value: any }) => {
+      if (!this.camera) return;
+      console.log("cam change", e.value);
+      const newPos = e.value;
+      this.camera.position = [newPos.x, newPos.y, newPos.z];
+    };
+    DebugUIInstance.add(
+      "Camera",
+      {
+        position: {
+          x: this.camera.position[0],
+          y: this.camera.position[1],
+          z: this.camera.position[2],
+        },
+      },
+      "position",
+      {},
+      handler
+    );
 
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
