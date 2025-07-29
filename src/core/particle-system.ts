@@ -3,9 +3,12 @@ import vertexShaderCode from "../shaders/particle/vertex.wgsl?raw";
 import fragmentShaderCode from "../shaders/particle/fragment.wgsl?raw";
 
 const MAX_PARTICLES = 10000;
+const PARTICLE_BYTE_OFFSET = 3 + 3;
 
 export default class ParticleSystem {
-  particles: Float32Array = new Float32Array(MAX_PARTICLES);
+  particles: Float32Array = new Float32Array(
+    MAX_PARTICLES * PARTICLE_BYTE_OFFSET
+  );
   currentIndex: number = 0;
 
   buffer: GPUBuffer;
@@ -90,6 +93,20 @@ export default class ParticleSystem {
         count: 4,
       },
     });
+
+    this.particles.set(
+      [
+        // Position
+        Math.random() * 2 - 1,
+        Math.random() * 2 - 1,
+        Math.random() * 2 - 1,
+        // Velocity
+        0,
+        Math.random() * 2 - 1,
+        0,
+      ],
+      0
+    );
   }
 
   compute(commandEncoder: GPUCommandEncoder) {
