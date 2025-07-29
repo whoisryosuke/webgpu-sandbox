@@ -45,17 +45,19 @@ class DebugUI {
     folderName: string,
     params: Bindable,
     paramName: string,
-    config: { min: number; max: number; step: number }
+    config: { min: number; max: number; step: number },
+    handler?: (e: { value: any }) => void
   ) {
-    this.add(folderName, params, paramName, config);
+    this.add(folderName, params, paramName, config, handler);
   }
   dropdown(
     folderName: string,
     params: Bindable,
     paramName: string,
-    options: Record<string, string>
+    options: Record<string, string>,
+    handler?: (e: { value: any }) => void
   ) {
-    this.add(folderName, params, paramName, { options });
+    this.add(folderName, params, paramName, { options }, handler);
   }
 }
 

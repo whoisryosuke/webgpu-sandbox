@@ -203,27 +203,7 @@ export default class WebGPURenderer {
     this.camera.updateScreenSize(canvas.width, canvas.height);
 
     // Add Debug UI
-    // Since we use flat Float32Array for position,
-    // we need to use an "onChange" callback to map it to XYZ object
-    const handler = (e: { value: any }) => {
-      if (!this.camera) return;
-      console.log("cam change", e.value);
-      const newPos = e.value;
-      this.camera.position = [newPos.x, newPos.y, newPos.z];
-    };
-    DebugUIInstance.add(
-      "Camera",
-      {
-        position: {
-          x: this.camera.position[0],
-          y: this.camera.position[1],
-          z: this.camera.position[2],
-        },
-      },
-      "position",
-      {},
-      handler
-    );
+    this.debugUI();
 
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
@@ -390,5 +370,46 @@ export default class WebGPURenderer {
     };
 
     requestAnimationFrame(render);
+  }
+
+  debugUI() {
+    if (!this.camera) return;
+    // Since we use flat Float32Array for position,
+    // we need to use an "onChange" callback to map it to XYZ object
+    const positionHandler = (e: { value: any }) => {
+      if (!this.camera) return;
+      console.log("cam change", e.value);
+      const newPos = e.value;
+      this.camera.updatePosition([newPos.x, newPos.y, newPos.z]);
+    };
+    DebugUIInstance.add(
+      "Camera",
+      {
+        position: {
+          x: this.camera.position[0],
+          y: this.camera.position[1],
+          z: this.camera.position[2],
+        },
+      },
+      "position",
+      {},
+      positionHandler
+    );
+
+    const fovHandler = (e: { value: any }) => {
+      if (!this.camera) return;
+      console.log("cam change", e.value);
+      const newFov = e.value;
+      this.camera.updateFov(newFov);
+    };
+    DebugUIInstance.slider(
+      "Camera",
+      {
+        fov: this.camera.fov,
+      },
+      "fov",
+      { min: 0, max: Math.PI, step: 0.1 },
+      fovHandler
+    );
   }
 }
