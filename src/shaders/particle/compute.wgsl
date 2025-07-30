@@ -6,6 +6,7 @@ struct Particle {
 // @group(0) @binding(0)
 // var<storage, read_write> particles : array<Particle>;
 @group(0) @binding(0) var<storage, read_write> particles : array<Particle>;
+@group(0) @binding(2) var<storage, read> waveform : array<f32, 1024>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) id : vec3<u32>) {
@@ -13,6 +14,9 @@ fn main(@builtin(global_invocation_id) id : vec3<u32>) {
   if (i >= arrayLength(&particles)) { return; }
 
   var p = particles[i];
+
+  let waveform_index = i % 1024;
+  p.pos.z = waveform[waveform_index];
 
   // // Simple gravity
   // let gravity = vec3<f32>(0.0, -0.0005, 0.0);

@@ -5,11 +5,13 @@ import { mat4, vec4 } from "wgpu-matrix";
 import DebugUIInstance from "./debug-ui";
 import { TpChangeEvent } from "tweakpane";
 import ParticleSystem from "./particle-system";
+import AudioPlayer from "./audio";
 
 export default class WebGPURenderer {
   device?: GPUDevice;
   camera?: Camera;
   multisampleTexture?: GPUTexture;
+  audio: AudioPlayer;
 
   particleSystem?: ParticleSystem;
 
@@ -306,11 +308,16 @@ export default class WebGPURenderer {
     // Create particle system
     this.particleSystem = new ParticleSystem(this.device, this.camera);
 
+    this.audio = new AudioPlayer();
+
     let frameCount = 0;
     let prevTime = 0;
 
     const render = (timestamp: number) => {
       if (!this.device || !this.camera || !this.multisampleTexture) return;
+
+      const waveform = this.audio.waveform();
+      if (waveform) this.particleSystem?.updateAudioBuffer(waveform.buffer);
 
       // if (frameCount % 1000) this.particleSystem?.spawn();
 

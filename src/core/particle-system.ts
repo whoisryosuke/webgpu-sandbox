@@ -16,6 +16,7 @@ export default class ParticleSystem {
 
   particleBuffer: GPUBuffer;
   uniformBuffer: GPUBuffer;
+  audioBuffer: GPUBuffer;
   vertexBuffer: GPUBuffer;
   indexBuffer: GPUBuffer;
   // particleCountBuffer: GPUBuffer;
@@ -48,16 +49,11 @@ export default class ParticleSystem {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    // Quad vertices for instanced rendering
-    const quadVertices = new Float32Array([
-      // position, uv
-      ...[-1, -1, 0, 0],
-      ...[1, -1, 1, 0],
-      ...[-1, 1, 0, 1],
-      ...[-1, 1, 0, 1],
-      ...[1, -1, 1, 0],
-      ...[1, 1, 1, 1],
-    ]);
+    // Audio buffer for waveform data
+    this.audioBuffer = this.device.createBuffer({
+      size: 1024 * 4, // 1024 samples x 4 bytes for f32 - Float32Array
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
 
     const { vertices, indices } = generateCube(0.01);
     this.indexCount = indices.length;
@@ -88,6 +84,11 @@ export default class ParticleSystem {
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "uniform" },
         },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" },
+        },
       ],
     });
     const renderBindGroupLayout = device.createBindGroupLayout({
@@ -110,6 +111,7 @@ export default class ParticleSystem {
       entries: [
         { binding: 0, resource: { buffer: this.particleBuffer } },
         { binding: 1, resource: { buffer: this.uniformBuffer } },
+        { binding: 2, resource: { buffer: this.audioBuffer } },
       ],
     });
 
@@ -283,26 +285,7 @@ export default class ParticleSystem {
     renderPass.drawIndexed(this.indexCount, MAX_PARTICLES);
   }
 
-  spawn() {
-    this.particles.set(
-      [
-        // Position
-        Math.random() * 2 - 1,
-        Math.random() * 2 - 1,
-        Math.random() * 2 - 1,
-        // Velocity
-        0,
-        Math.random() * 2 - 1,
-        0,
-      ],
-      this.currentIndex * PARTICLE_BYTE_OFFSET
-    );
-    this.currentIndex += 1;
-
-    this.device.queue.writeBuffer(
-      this.particleBuffer,
-      0,
-      this.particles.buffer
-    );
+  updateAudioBuffer(buffer: BufferSource | SharedArrayBuffer) {
+    this.device.queue.writeBuffer(this.audioBuffer, 0, buffer);
   }
 }
