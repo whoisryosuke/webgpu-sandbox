@@ -59,7 +59,7 @@ export default class ParticleSystem {
       ...[1, 1, 1, 1],
     ]);
 
-    const { vertices, indices } = generateCube(0.1);
+    const { vertices, indices } = generateCube(0.01);
     this.indexCount = indices.length;
 
     this.vertexBuffer = this.device.createBuffer({

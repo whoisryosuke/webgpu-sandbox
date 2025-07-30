@@ -31,7 +31,7 @@ fn main(input: VertexInput, @builtin(instance_index) instanceIndex: u32) -> Vert
   let particle = particles[instanceIndex];
   
   // Billboard the quad to face the camera
-  let instance_position = vec4<f32>(particle.pos, 1.0) + vec4<f32>(input.position * 0.5, 1.0);
+  let instance_position = vec4<f32>(particle.pos, 1.0) + vec4<f32>(input.position, 1.0);
   let world_position = camera.model_matrix * instance_position;
 
 
