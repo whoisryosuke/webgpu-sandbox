@@ -55,7 +55,7 @@ export default class ParticleSystem {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    const { vertices, indices } = generateCube(0.01);
+    const { vertices, indices } = generateCube(0.1);
     this.indexCount = indices.length;
 
     this.vertexBuffer = this.device.createBuffer({
@@ -212,47 +212,23 @@ export default class ParticleSystem {
     return new Float32Array(particles);
   }
 
-  // generateGridPositions(num: number) {
-  //   // Calculate the closest perfect square to maxElements
-  //   let sideLength = Math.floor(Math.sqrt(num));
-
-  //   let particles: number[] = [];
-  //   for (let x = 0; x < sideLength; x++) {
-  //     for (let y = 0; y < sideLength; y++) {
-  //       const realX = (x / sideLength) * 4;
-  //       const realY = (y / sideLength) * 4;
-  //       const particle = [
-  //         // Position
-  //         realX,
-  //         realY,
-  //         0,
-  //         // Velocity
-  //         0,
-  //         Math.random() * 2 - 1,
-  //         0,
-  //       ];
-  //       particles = [...particles, ...particle];
-  //     }
-  //   }
-
-  //   console.log("grid pos", particles.length / 6, num);
-
-  //   return new Float32Array(particles);
-  // }
-
   generateGridPositions(num: number) {
     // Calculate the closest perfect square to maxElements
     let sideLength = Math.floor(Math.sqrt(num));
 
     let particles: number[] = [];
+    const scale = 10.0;
+    const offsetCenter = scale / 2;
     for (let x = 0; x < num; x++) {
       const realX = (x % sideLength) / sideLength;
+      const scaledX = realX * scale;
       const y = x / sideLength;
       const realY = y / sideLength;
+      const scaledY = realY * scale;
       const particle = [
         // Position
-        realX,
-        realY,
+        scaledX - offsetCenter,
+        scaledY - offsetCenter,
         0,
         0,
         // Velocity
