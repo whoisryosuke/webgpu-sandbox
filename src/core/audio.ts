@@ -44,7 +44,8 @@ export default class AudioPlayer {
   }
 
   handleEvents() {
-    window.addEventListener("click", this.play);
+    const canvas = document.getElementById("gpu-canvas");
+    if (canvas) canvas.addEventListener("click", this.play);
   }
 
   play = async () => {
