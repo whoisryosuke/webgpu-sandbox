@@ -11,7 +11,7 @@ export default class WebGPURenderer {
   device?: GPUDevice;
   camera?: Camera;
   multisampleTexture?: GPUTexture;
-  audio: AudioPlayer;
+  audio?: AudioPlayer;
 
   particleSystem?: ParticleSystem;
 
@@ -207,9 +207,6 @@ export default class WebGPURenderer {
     this.camera = new Camera(this.device);
     this.camera.updateScreenSize(canvas.width, canvas.height);
 
-    // Add Debug UI
-    this.debugUI();
-
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
 
@@ -316,7 +313,8 @@ export default class WebGPURenderer {
     const render = (timestamp: number) => {
       if (!this.device || !this.camera || !this.multisampleTexture) return;
 
-      const waveform = this.audio.waveform();
+      let waveform;
+      if (this.audio) waveform = this.audio.waveform();
       if (waveform) this.particleSystem?.updateAudioBuffer(waveform.buffer);
 
       // if (frameCount % 1000) this.particleSystem?.spawn();
@@ -393,68 +391,5 @@ export default class WebGPURenderer {
     };
 
     requestAnimationFrame(render);
-  }
-
-  debugUI() {
-    if (!this.camera) return;
-
-    // Position
-    const positionHandler = (e: { value: any }) => {
-      if (!this.camera) return;
-      console.log("cam change", e.value);
-      const newPos = e.value;
-      this.camera.updatePosition(newPos);
-    };
-    DebugUIInstance.add(
-      "Camera",
-      {
-        position: {
-          x: this.camera.position.x,
-          y: this.camera.position.y,
-          z: this.camera.position.z,
-        },
-      },
-      "position",
-      {},
-      positionHandler
-    );
-
-    // Rotation
-    const rotationHandler = (e: { value: any }) => {
-      if (!this.camera) return;
-      console.log("cam change", e.value);
-      const newPos = e.value;
-      this.camera.rotate(newPos);
-    };
-    DebugUIInstance.add(
-      "Camera",
-      {
-        rotation: {
-          x: this.camera.rotation.x,
-          y: this.camera.rotation.y,
-          z: this.camera.rotation.z,
-        },
-      },
-      "rotation",
-      {},
-      rotationHandler
-    );
-
-    // FOV
-    const fovHandler = (e: { value: any }) => {
-      if (!this.camera) return;
-      console.log("cam change", e.value);
-      const newFov = e.value;
-      this.camera.updateFov(newFov);
-    };
-    DebugUIInstance.slider(
-      "Camera",
-      {
-        fov: this.camera.fov,
-      },
-      "fov",
-      { min: 0, max: Math.PI, step: 0.1 },
-      fovHandler
-    );
   }
 }

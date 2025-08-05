@@ -1,5 +1,6 @@
 import { Mat4, mat4, Vec3 } from "wgpu-matrix";
 import { Number3DArray, Vector3D } from "./vertex";
+import DebugUIInstance from "./debug-ui";
 
 export default class Camera {
   device?: GPUDevice;
@@ -49,6 +50,9 @@ export default class Camera {
 
     // Update uniform buffer with new matrices
     this.updateUniformBuffer();
+
+    // Debug UI
+    this.debugUI();
   }
 
   updateScreenSize(width: number, height: number) {
@@ -151,5 +155,63 @@ export default class Camera {
 
     // Write to GPU buffer
     this.device.queue.writeBuffer(this.buffer, 0, uniformData.buffer);
+  }
+
+  debugUI() {
+    // Position
+    const positionHandler = (e: { value: any }) => {
+      console.log("cam change", e.value);
+      const newPos = e.value;
+      this.updatePosition(newPos);
+    };
+    DebugUIInstance.add(
+      "Camera",
+      {
+        position: {
+          x: this.position.x,
+          y: this.position.y,
+          z: this.position.z,
+        },
+      },
+      "position",
+      {},
+      positionHandler
+    );
+
+    // Rotation
+    const rotationHandler = (e: { value: any }) => {
+      console.log("cam change", e.value);
+      const newPos = e.value;
+      this.rotate(newPos);
+    };
+    DebugUIInstance.add(
+      "Camera",
+      {
+        rotation: {
+          x: this.rotation.x,
+          y: this.rotation.y,
+          z: this.rotation.z,
+        },
+      },
+      "rotation",
+      {},
+      rotationHandler
+    );
+
+    // FOV
+    const fovHandler = (e: { value: any }) => {
+      console.log("cam change", e.value);
+      const newFov = e.value;
+      this.updateFov(newFov);
+    };
+    DebugUIInstance.slider(
+      "Camera",
+      {
+        fov: this.fov,
+      },
+      "fov",
+      { min: 0, max: Math.PI, step: 0.1 },
+      fovHandler
+    );
   }
 }
