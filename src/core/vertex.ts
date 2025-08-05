@@ -1,6 +1,16 @@
 export type Number2DArray = [number, number];
 export type Number3DArray = [...Number2DArray, number];
 export type Number4DArray = [...Number3DArray, number];
+export type Vector2D = {
+  x: number;
+  y: number;
+};
+export type Vector3D = Vector2D & {
+  z: number;
+};
+export type Vector4D = Vector3D & {
+  w: number;
+};
 
 export type Vertex = {
   position: Number3DArray;

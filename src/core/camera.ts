@@ -1,5 +1,5 @@
 import { Mat4, mat4, Vec3 } from "wgpu-matrix";
-import { Number3DArray } from "./vertex";
+import { Number3DArray, Vector3D } from "./vertex";
 
 export default class Camera {
   device?: GPUDevice;
@@ -10,11 +10,15 @@ export default class Camera {
   };
 
   // The "eye"
-  position: Number3DArray = [0, 0, 5];
-  // Camera's rotation
-  rotation = {
+  position: Vector3D = {
     x: 0,
     y: 0,
+    z: 4.2,
+  };
+  // Camera's rotation
+  rotation: Vector3D = {
+    x: 0,
+    y: 0.9,
     z: 0,
   };
   fov: number = Math.PI / 4;
@@ -42,6 +46,9 @@ export default class Camera {
     this.modelMatrix = mat4.identity();
     this.projectionMatrix = new Float32Array();
     this.updateProjectionMatrix();
+
+    // Update uniform buffer with new matrices
+    this.updateUniformBuffer();
   }
 
   updateScreenSize(width: number, height: number) {
@@ -55,7 +62,7 @@ export default class Camera {
   updateViewMatrix() {
     // Create view matrix (camera looking at origin from distance)
     this.viewMatrix = mat4.lookAt(
-      this.position, // eye position
+      [this.position.x, this.position.y, this.position.z], // eye position
       [0, 0, 0], // target
       [0, 1, 0] // up vector
     );
@@ -92,7 +99,7 @@ export default class Camera {
     this.updateUniformBuffer();
   }
 
-  updatePosition(position: Number3DArray) {
+  updatePosition(position: Vector3D) {
     this.position = position;
 
     // Update buffer
@@ -103,7 +110,23 @@ export default class Camera {
   }
 
   // Update rotation and matrices
-  updateRotation(deltaTime: number) {
+  rotate(newRotation: Vector3D) {
+    // Update rotation angles
+    this.rotation.x = newRotation.x;
+    this.rotation.y = newRotation.y;
+    this.rotation.z = newRotation.z;
+  }
+
+  updateRotation() {
+    // Update model view matrix with new rotation data
+    this.updateModelMatrix();
+
+    // Update uniform buffer with new matrices
+    this.updateUniformBuffer();
+  }
+
+  // Update rotation and matrices
+  animateRotation(deltaTime: number) {
     // Update rotation angles
     this.rotation.x += deltaTime * 0.5;
     this.rotation.y += deltaTime * 0.3;

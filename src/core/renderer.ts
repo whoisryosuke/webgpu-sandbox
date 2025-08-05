@@ -368,7 +368,8 @@ export default class WebGPURenderer {
 
       // Update uniforms
       this.device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-      this.camera.updateRotation(deltaTime);
+      // this.camera.animateRotation(deltaTime);
+      this.camera.updateRotation();
       this.device.queue.writeBuffer(
         instanceUniformBuffer,
         0,
@@ -396,21 +397,21 @@ export default class WebGPURenderer {
 
   debugUI() {
     if (!this.camera) return;
-    // Since we use flat Float32Array for position,
-    // we need to use an "onChange" callback to map it to XYZ object
+
+    // Position
     const positionHandler = (e: { value: any }) => {
       if (!this.camera) return;
       console.log("cam change", e.value);
       const newPos = e.value;
-      this.camera.updatePosition([newPos.x, newPos.y, newPos.z]);
+      this.camera.updatePosition(newPos);
     };
     DebugUIInstance.add(
       "Camera",
       {
         position: {
-          x: this.camera.position[0],
-          y: this.camera.position[1],
-          z: this.camera.position[2],
+          x: this.camera.position.x,
+          y: this.camera.position.y,
+          z: this.camera.position.z,
         },
       },
       "position",
@@ -418,6 +419,28 @@ export default class WebGPURenderer {
       positionHandler
     );
 
+    // Rotation
+    const rotationHandler = (e: { value: any }) => {
+      if (!this.camera) return;
+      console.log("cam change", e.value);
+      const newPos = e.value;
+      this.camera.rotate(newPos);
+    };
+    DebugUIInstance.add(
+      "Camera",
+      {
+        rotation: {
+          x: this.camera.rotation.x,
+          y: this.camera.rotation.y,
+          z: this.camera.rotation.z,
+        },
+      },
+      "rotation",
+      {},
+      rotationHandler
+    );
+
+    // FOV
     const fovHandler = (e: { value: any }) => {
       if (!this.camera) return;
       console.log("cam change", e.value);
