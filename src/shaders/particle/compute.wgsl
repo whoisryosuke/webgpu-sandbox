@@ -16,18 +16,18 @@ fn main(@builtin(global_invocation_id) id : vec3<u32>) {
   var p = particles[i];
 
   let waveform_index = i % 512;
-  p.pos.z += waveform[waveform_index];
+  p.vel.z += waveform[waveform_index] * 0.1;
 
-  // // Simple gravity
-  // let gravity = vec3<f32>(0.0, -0.0005, 0.0);
-  // p.vel += gravity;
-  // p.pos += p.vel;
+  // Simple gravity
+  let gravity = vec3<f32>(0.0, 0, -0.0005);
+  p.vel += gravity;
+  p.pos += p.vel;
 
-  // // Bounce off edges
-  // if (p.pos.y < -1.0) {
-  //   p.pos.y = -1.0;
-  //   p.vel.y *= -0.8;
-  // }
+  // Bounce off edges
+  if (p.pos.z < -1.0) {
+    p.pos.z = -1.0;
+    p.vel.z *= -0.8;
+  }
 
   particles[i] = p;
 }
