@@ -1,5 +1,5 @@
 import { Mat4, mat4, Vec3 } from "wgpu-matrix";
-import { Number3DArray, Vector3D } from "./vertex";
+import { Number3DArray, Vector2D, Vector3D } from "./vertex";
 import DebugUIInstance from "./debug-ui";
 
 export default class Camera {
@@ -23,6 +23,15 @@ export default class Camera {
     z: 0,
   };
   fov: number = Math.PI / 4;
+  navigating: boolean = false;
+  mouseInitial: Vector2D = {
+    x: 0,
+    y: 0,
+  };
+  mousePos: Vector2D = {
+    x: 0,
+    y: 0,
+  };
 
   // Model View Projection matrices
   viewMatrix: Float32Array;
@@ -50,6 +59,9 @@ export default class Camera {
 
     // Update uniform buffer with new matrices
     this.updateUniformBuffer();
+
+    // Setup events
+    this.handleEvents();
 
     // Debug UI
     this.debugUI();
@@ -155,6 +167,53 @@ export default class Camera {
 
     // Write to GPU buffer
     this.device.queue.writeBuffer(this.buffer, 0, uniformData.buffer);
+  }
+
+  handleStartMouseNav = (event: MouseEvent) => {
+    this.navigating = true;
+
+    // Store initial position
+    this.mouseInitial.x = event.clientX;
+    this.mouseInitial.y = event.clientY;
+  };
+
+  handleEndMouseNav = () => {
+    this.navigating = false;
+  };
+
+  handleMouseMove = (event: MouseEvent) => {
+    if (!this.navigating) return;
+    this.mousePos.x = event.clientX;
+    this.mousePos.y = event.clientY;
+
+    // Measure the distance of mouse movement
+    const deltaX = this.mousePos.x - this.mouseInitial.x;
+    const deltaY = this.mousePos.y - this.mouseInitial.y;
+
+    const rotateY = (deltaX / this.screenSize.width) * 2;
+    const rotateX = (deltaY / this.screenSize.height) * 2;
+
+    console.log("delta", rotateX, rotateY);
+
+    // Update rotation based on movement
+    this.rotate({
+      x: this.rotation.x + rotateX,
+      y: this.rotation.y + rotateY,
+      z: this.rotation.z,
+    });
+
+    // Store initial position
+    this.mouseInitial.x = event.clientX;
+    this.mouseInitial.y = event.clientY;
+  };
+
+  handleEvents() {
+    const canvas = document.getElementById("gpu-canvas");
+    if (!canvas) return;
+
+    canvas.addEventListener("mousedown", this.handleStartMouseNav);
+    canvas.addEventListener("mouseup", this.handleEndMouseNav);
+    canvas.addEventListener("mousemove", this.handleMouseMove);
   }
 
   debugUI() {
