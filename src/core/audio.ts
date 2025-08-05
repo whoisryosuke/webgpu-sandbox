@@ -1,3 +1,5 @@
+import DebugUIInstance from "./debug-ui";
+
 export default class AudioPlayer {
   context?: AudioContext;
   audio?: AudioBufferSourceNode;
@@ -10,6 +12,7 @@ export default class AudioPlayer {
 
   constructor() {
     this.handleEvents();
+    this.debugUI();
   }
 
   createAnalyser() {
@@ -44,8 +47,15 @@ export default class AudioPlayer {
   }
 
   handleEvents() {
-    const canvas = document.getElementById("gpu-canvas");
-    if (canvas) canvas.addEventListener("click", this.play);
+    // const canvas = document.getElementById("gpu-canvas");
+    // if (canvas) canvas.addEventListener("click", this.play);
+  }
+
+  debugUI() {
+    DebugUIInstance.button("Audio", {
+      title: "Play Audio",
+      onClick: this.play,
+    });
   }
 
   play = async () => {

@@ -59,6 +59,25 @@ class DebugUI {
   ) {
     this.add(folderName, params, paramName, { options }, handler);
   }
+
+  button(
+    folderName: string,
+    props: {
+      title: string;
+      label?: string;
+      onClick: () => void;
+    }
+  ) {
+    let ui = this.folders.get(folderName);
+    if (!ui) {
+      ui = this.createSection(folderName);
+    }
+    const button = ui.addButton({
+      title: props.title,
+      label: props.label,
+    });
+    button.on("click", props.onClick);
+  }
 }
 
 const DebugUIInstance = new DebugUI();
