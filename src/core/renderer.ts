@@ -376,11 +376,11 @@ export default class WebGPURenderer {
       );
 
       // Render
-      // passEncoder.setPipeline(renderPipeline);
-      // passEncoder.setBindGroup(0, uniformBindGroup);
-      // passEncoder.setVertexBuffer(0, vertexBuffer);
-      // passEncoder.setIndexBuffer(indexBuffer, "uint16");
-      // passEncoder.drawIndexed(indices.length, instanceCount);
+      passEncoder.setPipeline(renderPipeline);
+      passEncoder.setBindGroup(0, uniformBindGroup);
+      passEncoder.setVertexBuffer(0, vertexBuffer);
+      passEncoder.setIndexBuffer(indexBuffer, "uint16");
+      passEncoder.drawIndexed(indices.length, instanceCount);
 
       passEncoder.end();
       // Finish rendering
