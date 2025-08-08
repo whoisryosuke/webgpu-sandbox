@@ -9,11 +9,13 @@ export async function loadObj(url: string) {
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
-    const text = await response.text(); // Get the file content as text
+    // Get OBJ as text (since it's a text-based not binary)
+    const text = await response.text();
     return text;
   } catch (error) {
     console.error(`Error reading file from URL ${url}:`, error);
-    return ""; // Return an empty string in case of an error
+    // Return an empty string in case of an error
+    return "";
   }
 }
 
@@ -33,15 +35,17 @@ export function importObj(objString: string) {
   //   let currentMaterialName: string | null = null;
   //   const materialMap: { [name: string]: Material } = {};
 
+  // Grab every line in document
   const lines = objString.split("\n");
   for (const line of lines) {
     const trimmedLine = line.trim();
 
+    // Skip empty lines and comments
     if (!trimmedLine || trimmedLine.startsWith("#")) {
-      // Skip empty lines and comments
       continue;
     }
 
+    // Get each part of each line (e.g. the label, then 1/2/3, etc)
     const parts = trimmedLine.split(" ");
 
     switch (parts[0]) {
@@ -98,6 +102,8 @@ export function importObj(objString: string) {
           subParts.forEach((subPart) => {
             indices.push(subPart ? parseInt(subPart) - 1 : 0);
           });
+          // Didn't get enough values? Fill in the space with 0's
+          // @TODO: Maybe this isn't correct? How should we handle this?
           if (indices.length < 3) {
             [...new Array(3)].forEach((_, indicesIndex) => {
               indices[indicesIndex] = indices[indicesIndex] ?? 0;
@@ -117,6 +123,7 @@ export function importObj(objString: string) {
       //   case "mtllib": // Material Library
       //     const materialLibPath = parts[1];
       //     // In a real implementation, you'd load the MTL file here and populate materialMap.
+      //     // It's also a text file you can parse
       //     console.log(`Material library: ${materialLibPath}`);
       //     break;
 
@@ -132,15 +139,7 @@ export function importObj(objString: string) {
     }
   }
 
-  //   return {
-  //     vertices,
-  //     normals,
-  //     uvs,
-  //     faces,
-  //     // materials: Object.values(materialMap),
-  //   };
-
-  console.log("imported OBJ", { vertices, normals, uvs, faces });
+  // console.log("imported OBJ", { vertices, normals, uvs, faces });
 
   // Convert OBJ-style data to vertex buffer
   let meshPositions: Vector3D[] = [];
@@ -169,12 +168,12 @@ export function importObj(objString: string) {
     });
   });
 
-  console.log("creating mesh", {
-    meshPositions,
-    meshNormals,
-    meshUvs,
-    meshIndices,
-  });
+  // console.log("creating mesh", {
+  //   meshPositions,
+  //   meshNormals,
+  //   meshUvs,
+  //   meshIndices,
+  // });
 
   const mesh = new Mesh();
   mesh.position = meshPositions;

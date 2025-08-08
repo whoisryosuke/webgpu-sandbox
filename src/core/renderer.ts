@@ -46,25 +46,7 @@ export default class WebGPURenderer {
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
     // const { vertices, indices } = generateCube(0.1);
-    const objData = `
-# Blender 4.2.1 LTS
-# www.blender.org
-mtllib plane-untextured.mtl
-o Plane
-v -1.000000 0.000000 1.000000
-v 1.000000 0.000000 1.000000
-v -1.000000 0.000000 -1.000000
-v 1.000000 0.000000 -1.000000
-vn -0.0000 1.0000 -0.0000
-vt 0.000000 0.000000
-vt 1.000000 0.000000
-vt 1.000000 1.000000
-vt 0.000000 1.000000
-s 0
-f 1/1/1 2/2/1 4/3/1 3/4/1
-
-`;
-    const objFile = await loadObj("/models/cube-tri-untextured.obj");
+    const objFile = await loadObj("/models/torus-knot-tri-untextured.obj");
     const { vertices, indices } = importObj(objFile);
 
     console.log("vertices", vertices);
