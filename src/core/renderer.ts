@@ -8,8 +8,10 @@ import ParticleSystem from "./particle-system";
 import AudioPlayer from "./audio";
 
 export default class WebGPURenderer {
+  canvas?: HTMLCanvasElement;
   device?: GPUDevice;
   camera?: Camera;
+  depthTexture?: GPUTexture;
   multisampleTexture?: GPUTexture;
   audio?: AudioPlayer;
 
@@ -27,23 +29,13 @@ export default class WebGPURenderer {
     this.device = await adapter.requestDevice();
 
     // Setup canvas and context
-    let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-    if (!canvas) {
-      canvas = document.createElement("canvas");
-      canvas.id = "gpu-canvas";
-      document.getElementById("app")?.appendChild(canvas);
-    }
+    this.canvas = this.getCanvas();
     // Make it fullscreen
-    canvas.width = window.screen.width;
-    canvas.height = window.screen.height;
+    this.canvas.width = window.screen.width;
+    this.canvas.height = window.screen.height;
+    console.log("canvas created", this.canvas.width, this.canvas.height);
 
-    const context = canvas.getContext("webgpu");
-    if (!context) {
-      console.error(
-        "Couldn't create a context with canvas element. Please check if your browser supports WebGPU."
-      );
-      return;
-    }
+    const context = this.getContext();
     context.configure({
       device: this.device,
       format: "bgra8unorm",
@@ -205,7 +197,7 @@ export default class WebGPURenderer {
 
     // Create the camera
     this.camera = new Camera(this.device);
-    this.camera.updateScreenSize(canvas.width, canvas.height);
+    this.camera.updateScreenSize(this.canvas.width, this.canvas.height);
 
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
@@ -268,62 +260,39 @@ export default class WebGPURenderer {
       ],
     });
 
-    const SAMPLE_COUNT = 4;
-    const depthTexture = this.device.createTexture({
-      size: [canvas.width, canvas.height],
-      format: "depth24plus",
-      sampleCount: SAMPLE_COUNT,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-
-    // Multi-sampling / Anti-aliasing
-    // Get the current texture from the canvas context
-    const canvasTexture = context.getCurrentTexture();
-
-    // If the multisample texture doesn't exist or
-    // is the wrong size then make a new one.
-    if (
-      !this.multisampleTexture ||
-      this.multisampleTexture.width !== canvasTexture.width ||
-      this.multisampleTexture.height !== canvasTexture.height
-    ) {
-      // If we have an existing multisample texture destroy it.
-      if (this.multisampleTexture) {
-        this.multisampleTexture.destroy();
-      }
-
-      // Create a new multisample texture that matches our
-      // canvas's size
-      this.multisampleTexture = this.device.createTexture({
-        format: canvasTexture.format,
-        usage: GPUTextureUsage.RENDER_ATTACHMENT,
-        size: [canvasTexture.width, canvasTexture.height],
-        sampleCount: SAMPLE_COUNT,
-      });
-    }
+    // Create depth and MSAA texture
+    this.createCanvasTextures();
 
     // Create particle system
     this.particleSystem = new ParticleSystem(this.device, this.camera);
 
     this.audio = new AudioPlayer();
 
+    // Setup events
+    this.setupResize();
+
     let frameCount = 0;
     let prevTime = 0;
 
     const render = (timestamp: number) => {
-      if (!this.device || !this.camera || !this.multisampleTexture) return;
+      // Check if we have required element for rendering
+      if (
+        !this.device ||
+        !this.camera ||
+        !this.multisampleTexture ||
+        !this.depthTexture
+      )
+        return;
 
+      // Get latest waveform data
       let waveform;
       if (this.audio) waveform = this.audio.waveform();
       if (waveform) this.particleSystem?.updateAudioBuffer(waveform.buffer);
 
-      // if (frameCount % 1000) this.particleSystem?.spawn();
-
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
-      // const timeUniformData = Date.now();
       const timeUniformData = timestamp;
-      const aspect = canvas.width / canvas.height;
+      const aspect = this.canvas.width / this.canvas.height;
       uniformValues[kScaleOffset] = 0.5 / aspect;
       uniformValues[kScaleOffset + 1] = 0.5;
       uniformValues[kOffsetOffset + 1] = frameCount;
@@ -353,7 +322,7 @@ export default class WebGPURenderer {
           } as GPURenderPassColorAttachment,
         ],
         depthStencilAttachment: {
-          view: depthTexture.createView(),
+          view: this.depthTexture.createView(),
           depthClearValue: 1.0,
           depthLoadOp: "clear",
           depthStoreOp: "store",
@@ -391,5 +360,92 @@ export default class WebGPURenderer {
     };
 
     requestAnimationFrame(render);
+  }
+
+  getCanvas() {
+    let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.id = "gpu-canvas";
+      document.getElementById("app")?.appendChild(canvas);
+    }
+    return canvas;
+  }
+
+  getContext() {
+    if (!this.canvas) this.canvas = this.getCanvas();
+    const context = this.canvas.getContext("webgpu");
+    if (!context) {
+      throw new Error(
+        "Couldn't create a context with canvas element. Please check if your browser supports WebGPU."
+      );
+    }
+
+    return context;
+  }
+
+  createCanvasTextures() {
+    if (!this.canvas) this.canvas = this.getCanvas();
+    if (!this.device) return;
+    const SAMPLE_COUNT = 4;
+    this.depthTexture = this.device.createTexture({
+      size: [this.canvas.width, this.canvas.height],
+      format: "depth24plus",
+      sampleCount: SAMPLE_COUNT,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
+    // Multi-sampling / Anti-aliasing
+    // Get the current texture from the canvas context
+    const context = this.getContext();
+    const canvasTexture = context.getCurrentTexture();
+
+    // If the multisample texture doesn't exist or
+    // is the wrong size then make a new one.
+    if (
+      !this.multisampleTexture ||
+      this.multisampleTexture.width !== canvasTexture.width ||
+      this.multisampleTexture.height !== canvasTexture.height
+    ) {
+      // If we have an existing multisample texture destroy it.
+      if (this.multisampleTexture) {
+        this.multisampleTexture.destroy();
+      }
+
+      // Create a new multisample texture that matches our
+      // canvas's size
+      this.multisampleTexture = this.device.createTexture({
+        format: canvasTexture.format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        size: [canvasTexture.width, canvasTexture.height],
+        sampleCount: SAMPLE_COUNT,
+      });
+    }
+  }
+
+  setupResize() {
+    const observer = new ResizeObserver((entries) => {
+      if (!this.device || !this.camera) return;
+      for (const entry of entries) {
+        const canvas = entry.target as HTMLCanvasElement;
+        const width = entry.contentBoxSize[0].inlineSize;
+        const height = entry.contentBoxSize[0].blockSize;
+        canvas.width = Math.max(
+          1,
+          Math.min(width, this.device.limits.maxTextureDimension2D)
+        );
+        canvas.height = Math.max(
+          1,
+          Math.min(height, this.device.limits.maxTextureDimension2D)
+        );
+        console.log("resizing...", canvas.width, canvas.height);
+
+        this.createCanvasTextures();
+        this.camera.updateScreenSize(canvas.width, canvas.height);
+      }
+    });
+
+    let canvas = this.getCanvas();
+    observer.observe(canvas);
   }
 }
