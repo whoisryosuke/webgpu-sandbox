@@ -6,6 +6,7 @@ import DebugUIInstance from "./debug-ui";
 import { TpChangeEvent } from "tweakpane";
 import ParticleSystem from "./particle-system";
 import AudioPlayer from "./audio";
+import { importObj, loadObj } from "./import/obj";
 
 export default class WebGPURenderer {
   canvas?: HTMLCanvasElement;
@@ -44,7 +45,27 @@ export default class WebGPURenderer {
     // Setup vertex buffer
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
-    const { vertices, indices } = generateCube(0.1);
+    // const { vertices, indices } = generateCube(0.1);
+    const objData = `
+# Blender 4.2.1 LTS
+# www.blender.org
+mtllib plane-untextured.mtl
+o Plane
+v -1.000000 0.000000 1.000000
+v 1.000000 0.000000 1.000000
+v -1.000000 0.000000 -1.000000
+v 1.000000 0.000000 -1.000000
+vn -0.0000 1.0000 -0.0000
+vt 0.000000 0.000000
+vt 1.000000 0.000000
+vt 1.000000 1.000000
+vt 0.000000 1.000000
+s 0
+f 1/1/1 2/2/1 4/3/1 3/4/1
+
+`;
+    const objFile = await loadObj("/models/plane-untextured.obj");
+    const { vertices, indices } = importObj(objFile);
 
     console.log("vertices", vertices);
     console.log("indices", indices);
@@ -54,7 +75,7 @@ export default class WebGPURenderer {
       size: vertices.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
-    this.device.queue.writeBuffer(vertexBuffer, 0, vertices);
+    this.device.queue.writeBuffer(vertexBuffer, 0, vertices.buffer);
 
     const indexBuffer = this.device.createBuffer({
       label: "Index buffer",
@@ -202,7 +223,7 @@ export default class WebGPURenderer {
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
 
-    const instanceCount = 500;
+    const instanceCount = 1;
     const floatsPerInstance = 16; // mat4 + color
     const instanceUniformValue = new Float32Array(
       instanceCount * floatsPerInstance
