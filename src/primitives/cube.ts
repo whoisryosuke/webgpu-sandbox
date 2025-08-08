@@ -1,213 +1,115 @@
-import { createVertexBufferData, Vertex } from "../core/vertex";
+import Mesh from "../core/mesh";
+import { Vector2D, Vector3D } from "../core/vertex";
 
 export function generateCube(size: number) {
-  // Each vertex has: position (3), normal (3), UV (2) = 8 floats per vertex
   // 24 vertices total (4 vertices per face * 6 faces)
-  const vertices = new Float32Array([
+  const positions: Vector3D[] = [
+    { x: -size, y: -size, z: size },
+    { x: size, y: -size, z: size },
+    { x: size, y: size, z: size },
+    { x: -size, y: size, z: size },
+
+    { x: -size, y: -size, z: -size },
+    { x: size, y: -size, z: -size },
+    { x: size, y: size, z: -size },
+    { x: -size, y: size, z: -size },
+
+    { x: -size, y: -size, z: -size },
+    { x: -size, y: -size, z: size },
+    { x: -size, y: size, z: size },
+    { x: -size, y: size, z: -size },
+
+    { x: size, y: -size, z: -size },
+    { x: size, y: -size, z: size },
+    { x: size, y: size, z: size },
+    { x: size, y: size, z: -size },
+
+    { x: -size, y: size, z: -size },
+    { x: -size, y: size, z: size },
+    { x: size, y: size, z: size },
+    { x: size, y: size, z: -size },
+
+    { x: -size, y: -size, z: -size },
+    { x: size, y: -size, z: -size },
+    { x: size, y: -size, z: size },
+    { x: -size, y: -size, z: size },
+  ];
+
+  const normals: Vector3D[] = [
     // Front face (z = +size)
-    -size,
-    -size,
-    size,
-    0,
-    0,
-    1,
-    0,
-    0, // bottom-left
-    size,
-    -size,
-    size,
-    0,
-    0,
-    1,
-    1,
-    0, // bottom-right
-    size,
-    size,
-    size,
-    0,
-    0,
-    1,
-    1,
-    1, // top-right
-    -size,
-    size,
-    size,
-    0,
-    0,
-    1,
-    0,
-    1, // top-left
+    { x: 0, y: 0, z: 1 },
+    { x: 0, y: 0, z: 1 },
+    { x: 0, y: 0, z: 1 },
+    { x: 0, y: 0, z: 1 },
 
     // Back face (z = -size)
-    size,
-    -size,
-    -size,
-    0,
-    0,
-    -1,
-    0,
-    0, // bottom-left
-    -size,
-    -size,
-    -size,
-    0,
-    0,
-    -1,
-    1,
-    0, // bottom-right
-    -size,
-    size,
-    -size,
-    0,
-    0,
-    -1,
-    1,
-    1, // top-right
-    size,
-    size,
-    -size,
-    0,
-    0,
-    -1,
-    0,
-    1, // top-left
+    { x: 0, y: 0, z: -1 },
+    { x: 0, y: 0, z: -1 },
+    { x: 0, y: 0, z: -1 },
+    { x: 0, y: 0, z: -1 },
 
     // Left face (x = -size)
-    -size,
-    -size,
-    -size,
-    -1,
-    0,
-    0,
-    0,
-    0, // bottom-left
-    -size,
-    -size,
-    size,
-    -1,
-    0,
-    0,
-    1,
-    0, // bottom-right
-    -size,
-    size,
-    size,
-    -1,
-    0,
-    0,
-    1,
-    1, // top-right
-    -size,
-    size,
-    -size,
-    -1,
-    0,
-    0,
-    0,
-    1, // top-left
+    { x: -1, y: 0, z: 0 },
+    { x: -1, y: 0, z: 0 },
+    { x: -1, y: 0, z: 0 },
+    { x: -1, y: 0, z: 0 },
 
     // Right face (x = +size)
-    size,
-    -size,
-    size,
-    1,
-    0,
-    0,
-    0,
-    0, // bottom-left
-    size,
-    -size,
-    -size,
-    1,
-    0,
-    0,
-    1,
-    0, // bottom-right
-    size,
-    size,
-    -size,
-    1,
-    0,
-    0,
-    1,
-    1, // top-right
-    size,
-    size,
-    size,
-    1,
-    0,
-    0,
-    0,
-    1, // top-left
+    { x: 1, y: 0, z: 0 },
+    { x: 1, y: 0, z: 0 },
+    { x: 1, y: 0, z: 0 },
+    { x: 1, y: 0, z: 0 },
 
     // Top face (y = +size)
-    -size,
-    size,
-    size,
-    0,
-    1,
-    0,
-    0,
-    0, // bottom-left
-    size,
-    size,
-    size,
-    0,
-    1,
-    0,
-    1,
-    0, // bottom-right
-    size,
-    size,
-    -size,
-    0,
-    1,
-    0,
-    1,
-    1, // top-right
-    -size,
-    size,
-    -size,
-    0,
-    1,
-    0,
-    0,
-    1, // top-left
+    { x: 0, y: 1, z: 0 },
+    { x: 0, y: 1, z: 0 },
+    { x: 0, y: 1, z: 0 },
+    { x: 0, y: 1, z: 0 },
 
     // Bottom face (y = -size)
-    -size,
-    -size,
-    -size,
-    0,
-    -1,
-    0,
-    0,
-    0, // bottom-left
-    size,
-    -size,
-    -size,
-    0,
-    -1,
-    0,
-    1,
-    0, // bottom-right
-    size,
-    -size,
-    size,
-    0,
-    -1,
-    0,
-    1,
-    1, // top-right
-    -size,
-    -size,
-    size,
-    0,
-    -1,
-    0,
-    0,
-    1, // top-left
-  ]);
+    { x: 0, y: -1, z: 0 },
+    { x: 0, y: -1, z: 0 },
+    { x: 0, y: -1, z: 0 },
+    { x: 0, y: -1, z: 0 },
+  ];
+
+  const uvs: Vector2D[] = [
+    // Front face (z = +size)
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+
+    // Back face (z = -size)
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+
+    // Left face (x = -size)
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+
+    // Right face (x = +size)
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+
+    // Top face (y = +size)
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+
+    // Bottom face (y = -size)
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+  ];
 
   // Indices for 12 triangles (2 per face * 6 faces)
   const indices = new Uint16Array([
@@ -226,10 +128,18 @@ export function generateCube(size: number) {
   ]);
 
   console.log(`Generated cube with:
-    - Vertices: ${vertices.length / 8} (${vertices.length} floats)
+    - Vertices: ${positions.length}
     - Indices: ${indices.length}
-    - Max index: ${Math.max(...indices)}
-    - Vertex stride: 8 floats (32 bytes)`);
+    - Max index: ${Math.max(...indices)}`);
 
-  return { vertices, indices };
+  const mesh = new Mesh();
+  mesh.position = positions;
+  mesh.indices = indices;
+  mesh.normals = normals;
+  mesh.uvs = uvs;
+
+  // Convert our data to vertex buffer compatible data
+  mesh.generateVertexBufferData();
+
+  return { vertices: mesh.vertices, indices };
 }
