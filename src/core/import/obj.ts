@@ -96,7 +96,7 @@ export function importObj(objString: string) {
 
           const subParts = facePart.split("/");
           subParts.forEach((subPart) => {
-            indices.push(subPart ? parseInt(subPart) : 0);
+            indices.push(subPart ? parseInt(subPart) - 1 : 0);
           });
           if (indices.length < 3) {
             [...new Array(3)].forEach((_, indicesIndex) => {
@@ -149,17 +149,17 @@ export function importObj(objString: string) {
   let meshIndices: number[] = [];
   faces.forEach((face, index) => {
     face.vertices.forEach((vertexId) => {
-      const vertex = vertices[vertexId - 1];
-      meshPositions.push({ ...vertex });
+      const vertex = vertices[vertexId];
+      meshPositions[vertexId] = { ...vertex };
     });
     meshIndices.push(...face.vertices);
 
     face.normals.forEach((normalId) => {
-      const normal = normals[normalId - 1];
+      const normal = normals[normalId];
       meshNormals.push({ ...normal });
     });
     face.uvs.forEach((uvId) => {
-      let uv = uvs[uvId - 1];
+      let uv = uvs[uvId];
       if (!uv)
         uv = {
           x: 0,

@@ -64,7 +64,7 @@ s 0
 f 1/1/1 2/2/1 4/3/1 3/4/1
 
 `;
-    const objFile = await loadObj("/models/plane-untextured.obj");
+    const objFile = await loadObj("/models/cube-tri-untextured.obj");
     const { vertices, indices } = importObj(objFile);
 
     console.log("vertices", vertices);
