@@ -100,6 +100,7 @@ export function importObj(objString: string) {
 
           const subParts = facePart.split("/");
           subParts.forEach((subPart) => {
+            // We parse the number and subtract 1 because OBJ indexing starts at 1 (not 0 like arrays)
             indices.push(subPart ? parseInt(subPart) - 1 : 0);
           });
           // Didn't get enough values? Fill in the space with 0's
@@ -149,9 +150,11 @@ export function importObj(objString: string) {
   faces.forEach((face, index) => {
     face.vertices.forEach((vertexId) => {
       const vertex = vertices[vertexId];
-      meshPositions[vertexId] = { ...vertex };
+      meshPositions.push({ ...vertex });
     });
-    meshIndices.push(...face.vertices);
+
+    const lastIndex = meshIndices.length - 1;
+    meshIndices.push(lastIndex + 1, lastIndex + 2, lastIndex + 3);
 
     face.normals.forEach((normalId) => {
       const normal = normals[normalId];
@@ -181,8 +184,16 @@ export function importObj(objString: string) {
   mesh.uvs = meshUvs;
   mesh.generateVertexBufferData();
 
+  // Because we use Uint16 each row needs to be 4 bytes
+  // 1 number x 2 bytes = 2 bytes per element
+  // So we pad when necessary
+  // Basically make sure this is an even number
+  const paddedSize = Math.ceil(meshIndices.length / 2) * 2;
+  const meshIndicesTypedArray = new Uint16Array(paddedSize);
+  meshIndicesTypedArray.set(meshIndices);
+
   return {
     vertices: mesh.vertices,
-    indices: new Uint16Array(meshIndices),
+    indices: meshIndicesTypedArray,
   };
 }

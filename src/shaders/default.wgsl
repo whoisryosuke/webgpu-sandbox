@@ -60,7 +60,8 @@ fn vertex_main(
   // var lightAmount = max(dot(normal, lightDir), 0.3); // Minimum ambient
   // output.color = vec4f(abs(normal) * lightAmount, 1.0);
   // output.color = vec4f(uv, 1.0, 1.0) * vec4f(normal, 1.0);
-  output.color = vec4f(uv, 1.0, 1.0);
+  // output.color = vec4f(uv, 1.0, 1.0);
+  output.color = vec4f(normal, 1.0);
   
   output.normal = normal;
   output.uv = uv;

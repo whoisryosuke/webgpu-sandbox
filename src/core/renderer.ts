@@ -46,7 +46,7 @@ export default class WebGPURenderer {
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
     // const { vertices, indices } = generateCube(0.1);
-    const objFile = await loadObj("/models/torus-knot-tri-untextured.obj");
+    const objFile = await loadObj("/models/suzanne-tri-untextured.obj");
     const { vertices, indices } = importObj(objFile);
 
     console.log("vertices", vertices);
