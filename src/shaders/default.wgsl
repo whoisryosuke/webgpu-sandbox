@@ -21,6 +21,8 @@ struct CameraUniforms {
 @group(0) @binding(0) var<uniform> locals: LocalUniforms;
 @group(0) @binding(1) var<uniform> camera: CameraUniforms;
 @group(0) @binding(2) var<storage, read> instances : array<mat4x4<f32>>;
+@group(1) @binding(0) var mySampler: sampler;
+@group(1) @binding(1) var myTexture: texture_2d<f32>;
  
 @vertex
 fn vertex_main(
@@ -33,19 +35,12 @@ fn vertex_main(
 {
   var output : VertexOut;
 
-  
-  
-  // Apply scaling (keep Z coordinate)
-  // pos.x *= locals.scale.x;
-  // pos.y *= locals.scale.y;
-  
-
   // Transform position through model, view, and projection matrices
   // let transformedPosition = instances[0] * vec4<f32>(position, 1.0); // Apply instance matrix
   // let world_position = camera.model_matrix * transformedPosition;
 
   let instance_position = instances[instanceIndex] * vec4<f32>(position, 1.0);
-  let world_position = camera.model_matrix * instance_position;
+  let world_position = camera.model_matrix * instance_position * vec4<f32>(locals.scale, 1.0, 1.0);
 
 
   // let world_position = camera.model_matrix * vec4<f32>(position, 1.0);
@@ -72,5 +67,9 @@ fn vertex_main(
 @fragment
 fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
 {
-  return fragData.color;
+  
+  let textureColor = textureSample(myTexture, mySampler, fragData.uv);
+  return textureColor;
+  // return fragData.color;
+  // return vec4f(fragData.uv, 1.0, 1.0);
 }

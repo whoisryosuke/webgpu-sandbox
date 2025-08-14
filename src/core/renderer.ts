@@ -7,16 +7,20 @@ import { TpChangeEvent } from "tweakpane";
 import ParticleSystem from "./particle-system";
 import AudioPlayer from "./audio";
 import { importObj, loadObj } from "./import/obj";
+import { createTexture, createTextureBindGroup, loadImage } from "./texture";
 
 export default class WebGPURenderer {
-  canvas?: HTMLCanvasElement;
-  device?: GPUDevice;
-  camera?: Camera;
-  depthTexture?: GPUTexture;
-  multisampleTexture?: GPUTexture;
-  audio?: AudioPlayer;
+  canvas!: HTMLCanvasElement;
+  device!: GPUDevice;
+  camera!: Camera;
+  depthTexture!: GPUTexture;
+  multisampleTexture!: GPUTexture;
+  audio!: AudioPlayer;
+  particleSystem!: ParticleSystem;
 
-  particleSystem?: ParticleSystem;
+  // Mesh attributes
+  // @TODO: Extract to a mesh class
+  texture!: GPUTexture;
 
   async init() {
     // Setup adapter and device
@@ -124,6 +128,13 @@ export default class WebGPURenderer {
             type: "read-only-storage",
           },
         },
+        {
+          binding: 3,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+            type: "storage",
+          },
+        },
       ],
     });
 
@@ -159,12 +170,12 @@ export default class WebGPURenderer {
       },
 
       // This determines the bind group layout automatically by analyzing the shader modules
-      // layout: "auto",
+      layout: "auto",
 
       // Manually define the bind group layout for shader uniforms
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [bindGroupLayout],
-      }),
+      // layout: this.device.createPipelineLayout({
+      //   bindGroupLayouts: [bindGroupLayout],
+      // }),
     };
     const renderPipeline = this.device.createRenderPipeline(pipelineDescriptor);
 
@@ -194,13 +205,30 @@ export default class WebGPURenderer {
     // Because we initialize the array with a length, but not a real array,
     // we need to explicitly set each "slot" in the array
     uniformValues.set([0, 0, 1, 1], kColorOffset); // set the color
-    uniformValues.set([0.5, 0.5], kScaleOffset); // set the scale
+    uniformValues.set([1, 1], kScaleOffset); // set the scale
     uniformValues.set([0, 0], kOffsetOffset); // set the offset
     uniformValues.set([0], kTimeOffset); // set the time
 
     // Create the camera
     this.camera = new Camera(this.device);
     this.camera.updateScreenSize(this.canvas.width, this.canvas.height);
+
+    // Load texture
+    const imageBitmap = await loadImage("./images/3dscan.png");
+    this.texture = createTexture(this.device, imageBitmap);
+
+    // Create a sampler with linear filtering for smooth interpolation.
+    const sampler = this.device.createSampler({
+      magFilter: "linear",
+      minFilter: "linear",
+    });
+
+    const textureBindGroup = createTextureBindGroup(
+      this.device,
+      renderPipeline,
+      this.texture,
+      sampler
+    );
 
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
@@ -222,14 +250,6 @@ export default class WebGPURenderer {
 
       instanceUniformValue.set(model, offset);
     }
-
-    // const translationMatrices = new Float32Array();
-    // for (const position of instancePositions) {
-    //   const matrix = mat4.create();
-    //   mat4.translation(position); // Create a translation matrix for each instance
-    //   translationMatrices.push(...matrix); // Flatten the matrix into an array
-    // }
-    // const instanceUniformValue = new Float32Array(translationMatrices);
 
     const instanceUniformBuffer = this.device.createBuffer({
       label: "Instances Uniform buffer",
@@ -301,8 +321,8 @@ export default class WebGPURenderer {
       // aka example of a "dynamic" uniform
       const timeUniformData = timestamp;
       const aspect = this.canvas.width / this.canvas.height;
-      uniformValues[kScaleOffset] = 0.5 / aspect;
-      uniformValues[kScaleOffset + 1] = 0.5;
+      // uniformValues[kScaleOffset] = 0.5 / aspect;
+      // uniformValues[kScaleOffset + 1] = 0.5;
       uniformValues[kOffsetOffset + 1] = frameCount;
       uniformValues[kTimeOffset + 1] = timestamp;
 
@@ -354,6 +374,7 @@ export default class WebGPURenderer {
       // Render
       passEncoder.setPipeline(renderPipeline);
       passEncoder.setBindGroup(0, uniformBindGroup);
+      passEncoder.setBindGroup(1, textureBindGroup);
       passEncoder.setVertexBuffer(0, vertexBuffer);
       passEncoder.setIndexBuffer(indexBuffer, "uint16");
       passEncoder.drawIndexed(indices.length, instanceCount);
