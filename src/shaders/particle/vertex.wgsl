@@ -19,8 +19,9 @@ struct VertexInput {
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2<f32>,
-  @location(1) life: f32,
-  @location(2) particleSize: f32,
+  @location(1) normal: vec3f,
+  @location(2) life: f32,
+  @location(3) particleSize: f32,
 }
 
 @group(0) @binding(0) var<storage, read> particles: array<Particle>;

@@ -205,7 +205,7 @@ export default class WebGPURenderer {
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
 
-    const instanceCount = 1;
+    const instanceCount = 500;
     const floatsPerInstance = 16; // mat4 + color
     const instanceUniformValue = new Float32Array(
       instanceCount * floatsPerInstance
@@ -215,8 +215,8 @@ export default class WebGPURenderer {
       const offset = i * floatsPerInstance;
 
       const model = mat4.translation([
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
         (Math.random() - 0.5) * 2,
       ]);
 
@@ -267,7 +267,12 @@ export default class WebGPURenderer {
     this.createCanvasTextures();
 
     // Create particle system
-    this.particleSystem = new ParticleSystem(this.device, this.camera);
+    this.particleSystem = new ParticleSystem(
+      this.device,
+      this.camera,
+      vertices,
+      indices
+    );
 
     this.audio = new AudioPlayer();
 

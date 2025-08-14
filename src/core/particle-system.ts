@@ -3,6 +3,7 @@ import vertexShaderCode from "../shaders/particle/vertex.wgsl?raw";
 import fragmentShaderCode from "../shaders/particle/fragment.wgsl?raw";
 import { generateCube } from "../primitives/cube";
 import Camera from "./camera";
+import { importObj, loadObj } from "./import/obj";
 
 const MAX_PARTICLES = 1000;
 const PARTICLE_BYTE_OFFSET = 32; // 24 bytes per particle (vec3<f32> * 2)
@@ -27,7 +28,12 @@ export default class ParticleSystem {
 
   indexCount: number = 0;
 
-  constructor(device: GPUDevice, camera: Camera) {
+  constructor(
+    device: GPUDevice,
+    camera: Camera,
+    vertices: Float32Array,
+    indices: Uint16Array
+  ) {
     this.device = device;
     this.particleBuffer = device.createBuffer({
       label: "Particles buffer",
@@ -55,7 +61,7 @@ export default class ParticleSystem {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    const { vertices, indices } = generateCube(0.1);
+    // const { vertices, indices } = generateCube(0.1);
     this.indexCount = indices.length;
 
     this.vertexBuffer = this.device.createBuffer({
@@ -63,14 +69,14 @@ export default class ParticleSystem {
       size: vertices.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
-    this.device.queue.writeBuffer(this.vertexBuffer, 0, vertices);
+    this.device.queue.writeBuffer(this.vertexBuffer, 0, vertices.buffer);
 
     this.indexBuffer = this.device.createBuffer({
       label: "Index buffer",
       size: indices.byteLength,
       usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
     });
-    this.device.queue.writeBuffer(this.indexBuffer, 0, indices);
+    this.device.queue.writeBuffer(this.indexBuffer, 0, indices.buffer);
 
     const computeBindGroupLayout = device.createBindGroupLayout({
       entries: [
@@ -217,14 +223,15 @@ export default class ParticleSystem {
     let sideLength = Math.floor(Math.sqrt(num));
 
     let particles: number[] = [];
-    const scale = 10.0;
-    const offsetCenter = scale / 2;
+    const scaleX = 100.0;
+    const scaleY = 80.0;
+    const offsetCenter = scaleX / 2;
     for (let x = 0; x < num; x++) {
       const realX = (x % sideLength) / sideLength;
-      const scaledX = realX * scale;
+      const scaledX = realX * scaleX;
       const y = x / sideLength;
       const realY = y / sideLength;
-      const scaledY = realY * scale;
+      const scaledY = realY * scaleY;
       const particle = [
         // Position
         scaledX - offsetCenter,

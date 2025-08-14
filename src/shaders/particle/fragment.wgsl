@@ -1,7 +1,8 @@
 struct FragmentInput {
   @location(0) uv: vec2<f32>,
-  @location(1) life: f32,
-  @location(2) particleSize: f32,
+  @location(1) normal: vec3f,
+  @location(2) life: f32,
+  @location(3) particleSize: f32,
 }
 
 @fragment
