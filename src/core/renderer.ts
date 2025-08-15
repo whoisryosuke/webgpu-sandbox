@@ -1,9 +1,6 @@
 import defaultShader from "../shaders/default.wgsl?raw";
-import { generateCube } from "../primitives/cube";
 import Camera from "./camera";
 import { mat4, vec4 } from "wgpu-matrix";
-import DebugUIInstance from "./debug-ui";
-import { TpChangeEvent } from "tweakpane";
 import ParticleSystem from "./particle-system";
 import AudioPlayer from "./audio";
 import { importObj, loadObj } from "./import/obj";
@@ -39,6 +36,9 @@ export default class WebGPURenderer {
     this.canvas.width = window.screen.width;
     this.canvas.height = window.screen.height;
     console.log("canvas created", this.canvas.width, this.canvas.height);
+
+    // Remove right click menu
+    this.preventRightClick();
 
     const context = this.getContext();
     context.configure({
@@ -476,5 +476,11 @@ export default class WebGPURenderer {
 
     let canvas = this.getCanvas();
     observer.observe(canvas);
+  }
+
+  preventRightClick() {
+    this.canvas.addEventListener("contextmenu", (event) =>
+      event.preventDefault()
+    );
   }
 }

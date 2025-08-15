@@ -2,6 +2,22 @@ import { Mat4, mat4, Vec3 } from "wgpu-matrix";
 import { Number3DArray, Vector2D, Vector3D } from "./vertex";
 import DebugUIInstance from "./debug-ui";
 
+const NAVIGATION_MODES = {
+  move: "Move",
+  pan: "Pan",
+  rotate: "Rotate",
+};
+type NavigationModes = keyof typeof NAVIGATION_MODES;
+
+const MOUSE_BUTTON_MAP: Record<number, NavigationModes> = {
+  // Left click
+  0: "rotate",
+  // Middle click
+  1: "pan",
+  // Right click
+  2: "move",
+};
+
 export default class Camera {
   device?: GPUDevice;
   buffer: GPUBuffer;
@@ -24,6 +40,7 @@ export default class Camera {
   };
   fov: number = Math.PI / 4;
   navigating: boolean = false;
+  navigationMode: NavigationModes = "move";
   mouseInitial: Vector2D = {
     x: 0,
     y: 0,
@@ -115,8 +132,8 @@ export default class Camera {
     this.updateUniformBuffer();
   }
 
-  updatePosition(position: Vector3D) {
-    this.position = position;
+  updatePosition(position?: Vector3D) {
+    if (position) this.position = position;
 
     // Update buffer
     this.updateViewMatrix();
@@ -170,18 +187,24 @@ export default class Camera {
   }
 
   handleStartMouseNav = (event: MouseEvent) => {
-    this.navigating = true;
+    // Check if mouse button has mapping - if so - start moving camera
+    this.navigating = event.button in MOUSE_BUTTON_MAP;
+    // Figure out movement type based on button pressed
+    this.navigationMode = MOUSE_BUTTON_MAP[event.button];
 
     // Store initial position
     this.mouseInitial.x = event.clientX;
     this.mouseInitial.y = event.clientY;
   };
 
-  handleEndMouseNav = () => {
-    this.navigating = false;
+  handleEndMouseNav = (event: MouseEvent) => {
+    // Check if mouse button has mapping - if so - start moving camera
+    if (event.button in MOUSE_BUTTON_MAP) {
+      this.navigating = false;
+    }
   };
 
-  handleMouseMove = (event: MouseEvent) => {
+  handleMouseNavigation = (event: MouseEvent) => {
     if (!this.navigating) return;
     this.mousePos.x = event.clientX;
     this.mousePos.y = event.clientY;
@@ -190,10 +213,41 @@ export default class Camera {
     const deltaX = this.mousePos.x - this.mouseInitial.x;
     const deltaY = this.mousePos.y - this.mouseInitial.y;
 
+    switch (this.navigationMode) {
+      case "rotate":
+        this.handleMouseRotate(deltaX, deltaY);
+        break;
+      case "move":
+        console.log("moving");
+        this.handleMouseMove(deltaX, deltaY);
+        break;
+      case "pan":
+        console.log("panning");
+        break;
+    }
+
+    // Store initial position
+    this.mouseInitial.x = event.clientX;
+    this.mouseInitial.y = event.clientY;
+  };
+
+  handleMousePan(deltaX: number, deltaY: number) {
+    this.position.x += deltaX / 100;
+    this.position.y += deltaY / 100;
+
+    this.updatePosition();
+  }
+
+  handleMouseMove(deltaX: number, deltaY: number) {
+    this.position.x += deltaX / 100;
+    this.position.y += deltaY / 100;
+
+    this.updatePosition();
+  }
+
+  handleMouseRotate(deltaX: number, deltaY: number) {
     const rotateY = (deltaX / this.screenSize.width) * 2;
     const rotateX = (deltaY / this.screenSize.height) * 2;
-
-    console.log("delta", rotateX, rotateY);
 
     // Update rotation based on movement
     this.rotate({
@@ -201,10 +255,13 @@ export default class Camera {
       y: this.rotation.y + rotateY,
       z: this.rotation.z,
     });
+  }
 
-    // Store initial position
-    this.mouseInitial.x = event.clientX;
-    this.mouseInitial.y = event.clientY;
+  handleMouseScroll = (event: WheelEvent) => {
+    console.log("scroll", event, this.position);
+
+    this.position.z += event.deltaY / 100;
+    this.updatePosition();
   };
 
   handleEvents() {
@@ -213,7 +270,8 @@ export default class Camera {
 
     canvas.addEventListener("mousedown", this.handleStartMouseNav);
     canvas.addEventListener("mouseup", this.handleEndMouseNav);
-    canvas.addEventListener("mousemove", this.handleMouseMove);
+    canvas.addEventListener("mousemove", this.handleMouseNavigation);
+    canvas.addEventListener("wheel", this.handleMouseScroll);
   }
 
   debugUI() {
