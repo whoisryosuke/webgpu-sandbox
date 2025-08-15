@@ -1,9 +1,10 @@
-import { Mat4, mat4, Vec3 } from "wgpu-matrix";
+import { mat3, Mat4, mat4, Vec3, quat, vec3 } from "wgpu-matrix";
 import { Number3DArray, Vector2D, Vector3D } from "./vertex";
 import DebugUIInstance from "./debug-ui";
 
 const NAVIGATION_MODES = {
-  move: "Move",
+  // move: "Move",
+  zoom: "Zoom",
   pan: "Pan",
   rotate: "Rotate",
 };
@@ -15,7 +16,7 @@ const MOUSE_BUTTON_MAP: Record<number, NavigationModes> = {
   // Middle click
   1: "pan",
   // Right click
-  2: "move",
+  2: "zoom",
 };
 
 export default class Camera {
@@ -40,7 +41,7 @@ export default class Camera {
   };
   fov: number = Math.PI / 4;
   navigating: boolean = false;
-  navigationMode: NavigationModes = "move";
+  navigationMode: NavigationModes = "pan";
   mouseInitial: Vector2D = {
     x: 0,
     y: 0,
@@ -54,6 +55,7 @@ export default class Camera {
   viewMatrix: Float32Array;
   modelMatrix: Float32Array;
   projectionMatrix: Float32Array;
+  rotationMatrix: Float32Array;
 
   constructor(device: GPUDevice) {
     // We keep device around to update uniforms on it
@@ -73,6 +75,8 @@ export default class Camera {
     this.modelMatrix = mat4.identity();
     this.projectionMatrix = new Float32Array();
     this.updateProjectionMatrix();
+
+    this.rotationMatrix = new Float32Array();
 
     // Update uniform buffer with new matrices
     this.updateUniformBuffer();
@@ -122,6 +126,21 @@ export default class Camera {
     mat4.rotateX(this.modelMatrix, this.rotation.x, this.modelMatrix);
   }
 
+  /**
+   * Create rotation matrix from Euler angles
+   */
+  updateRotationMatrix() {
+    const rotX = mat4.rotationX(this.rotation.x);
+    const rotY = mat4.rotationY(this.rotation.y);
+    const rotZ = mat4.rotationZ(this.rotation.z);
+
+    // Combine rotations (order: Y * X * Z)
+    let result = mat4.multiply(rotY, rotX);
+    result = mat4.multiply(result, rotZ);
+
+    this.rotationMatrix = result;
+  }
+
   updateFov(fov: number) {
     this.fov = fov;
 
@@ -156,6 +175,9 @@ export default class Camera {
 
     // Update uniform buffer with new matrices
     this.updateUniformBuffer();
+
+    // Update rotation matrix
+    this.updateRotationMatrix();
   }
 
   // Update rotation and matrices
@@ -217,12 +239,13 @@ export default class Camera {
       case "rotate":
         this.handleMouseRotate(deltaX, deltaY);
         break;
-      case "move":
-        console.log("moving");
-        this.handleMouseMove(deltaX, deltaY);
+      case "zoom":
+        console.log("zooming");
+        this.handleMouseZoom(deltaY);
         break;
       case "pan":
         console.log("panning");
+        this.handleMousePan(deltaX, deltaY);
         break;
     }
 
@@ -232,8 +255,25 @@ export default class Camera {
   };
 
   handleMousePan(deltaX: number, deltaY: number) {
-    this.position.x += deltaX / 100;
-    this.position.y += deltaY / 100;
+    const speed = 0.1;
+    // Get the camera's right vector (local X-axis)
+    const rightVector = this.getRightVector();
+
+    // Get the camera's up vector (local Y-axis)
+    const upVector = this.getUpVector();
+
+    // Scale the movement by speed
+    const scaledDeltaX = deltaX * speed;
+    const scaledDeltaY = deltaY * speed;
+
+    // Calculate movement in world space
+    const horizontalMovement = vec3.scale(rightVector, scaledDeltaX);
+    const verticalMovement = vec3.scale(upVector, scaledDeltaY);
+
+    // Apply movement to camera position
+    this.position.x += horizontalMovement[0] + verticalMovement[0];
+    this.position.y += horizontalMovement[1] + verticalMovement[1];
+    this.position.z += horizontalMovement[2] + verticalMovement[2];
 
     this.updatePosition();
   }
@@ -243,6 +283,10 @@ export default class Camera {
     this.position.y += deltaY / 100;
 
     this.updatePosition();
+  }
+
+  handleMouseZoom(deltaY: number) {
+    this.zoom(deltaY * 0.1);
   }
 
   handleMouseRotate(deltaX: number, deltaY: number) {
@@ -257,11 +301,14 @@ export default class Camera {
     });
   }
 
+  zoom(zoomAmount: number) {
+    this.position.z += zoomAmount;
+    this.updatePosition();
+  }
+
   handleMouseScroll = (event: WheelEvent) => {
     console.log("scroll", event, this.position);
-
-    this.position.z += event.deltaY / 100;
-    this.updatePosition();
+    this.zoom(event.deltaY / 100);
   };
 
   handleEvents() {
@@ -272,6 +319,42 @@ export default class Camera {
     canvas.addEventListener("mouseup", this.handleEndMouseNav);
     canvas.addEventListener("mousemove", this.handleMouseNavigation);
     canvas.addEventListener("wheel", this.handleMouseScroll);
+  }
+
+  /**
+   * Get the camera's right vector (local X-axis)
+   */
+  getRightVector() {
+    // Extract right vector (first column of rotation matrix)
+    return vec3.normalize([
+      this.rotationMatrix[0],
+      this.rotationMatrix[4],
+      this.rotationMatrix[8],
+    ]);
+  }
+
+  /**
+   * Get the camera's up vector (local Y-axis)
+   */
+  getUpVector() {
+    // Extract up vector (second column of rotation matrix)
+    return vec3.normalize([
+      this.rotationMatrix[1],
+      this.rotationMatrix[5],
+      this.rotationMatrix[9],
+    ]);
+  }
+
+  /**
+   * Get the camera's forward vector (local Z-axis, but negated for camera)
+   */
+  getForwardVector() {
+    // Extract forward vector (negative third column for camera convention)
+    return vec3.normalize([
+      -this.rotationMatrix[2],
+      -this.rotationMatrix[6],
+      -this.rotationMatrix[10],
+    ]);
   }
 
   debugUI() {
