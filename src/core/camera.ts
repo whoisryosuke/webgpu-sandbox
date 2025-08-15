@@ -39,6 +39,8 @@ export default class Camera {
     y: 0.9,
     z: 0,
   };
+  // The "up" vector
+  up = vec3.create(0, 1, 0);
   fov: number = Math.PI / 4;
   navigating: boolean = false;
   navigationMode: NavigationModes = "pan";
@@ -259,16 +261,13 @@ export default class Camera {
     // Get the camera's right vector (local X-axis)
     const rightVector = this.getRightVector();
 
-    // Get the camera's up vector (local Y-axis)
-    const upVector = this.getUpVector();
-
     // Scale the movement by speed
     const scaledDeltaX = deltaX * speed;
     const scaledDeltaY = deltaY * speed;
 
     // Calculate movement in world space
     const horizontalMovement = vec3.scale(rightVector, scaledDeltaX);
-    const verticalMovement = vec3.scale(upVector, scaledDeltaY);
+    const verticalMovement = vec3.scale(this.up, scaledDeltaY);
 
     // Apply movement to camera position
     this.position.x += horizontalMovement[0] + verticalMovement[0];
@@ -330,18 +329,6 @@ export default class Camera {
       this.rotationMatrix[0],
       this.rotationMatrix[4],
       this.rotationMatrix[8],
-    ]);
-  }
-
-  /**
-   * Get the camera's up vector (local Y-axis)
-   */
-  getUpVector() {
-    // Extract up vector (second column of rotation matrix)
-    return vec3.normalize([
-      this.rotationMatrix[1],
-      this.rotationMatrix[5],
-      this.rotationMatrix[9],
     ]);
   }
 
