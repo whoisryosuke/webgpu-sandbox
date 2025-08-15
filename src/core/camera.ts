@@ -39,7 +39,7 @@ export default class Camera {
     y: 0.9,
     z: 0,
   };
-  // The "up" vector
+  // The "up" vector (Y-up)
   up = vec3.create(0, 1, 0);
   fov: number = Math.PI / 4;
   navigating: boolean = false;
