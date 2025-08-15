@@ -1,6 +1,10 @@
 import { mat3, Mat4, mat4, Vec3, quat, vec3 } from "wgpu-matrix";
 import { Number3DArray, Vector2D, Vector3D } from "./vertex";
 import DebugUIInstance from "./debug-ui";
+import inputStore, {
+  InputStoreState,
+  InputStoreStateKeys,
+} from "./store/input";
 
 const NAVIGATION_MODES = {
   // move: "Move",
@@ -41,9 +45,10 @@ export default class Camera {
   };
   // The "up" vector (Y-up)
   up = vec3.create(0, 1, 0);
-  fov: number = Math.PI / 4;
-  navigating: boolean = false;
+  fov = Math.PI / 4;
+  navigating = false;
   navigationMode: NavigationModes = "pan";
+  movementSpeed = 0.1;
   mouseInitial: Vector2D = {
     x: 0,
     y: 0,
@@ -85,6 +90,9 @@ export default class Camera {
 
     // Setup events
     this.handleEvents();
+
+    // Subscribe to input store
+    this.subscribeToInput();
 
     // Debug UI
     this.debugUI();
@@ -342,6 +350,34 @@ export default class Camera {
       -this.rotationMatrix[6],
       -this.rotationMatrix[10],
     ]);
+  }
+
+  handleInput = (input: InputStoreState) => {
+    const pressedKeys = Object.entries(input).filter(
+      ([_, pressed]) => pressed
+    ) as [InputStoreStateKeys, boolean][];
+    pressedKeys.forEach(([key]) => {
+      switch (key) {
+        case "forward":
+          this.position.z -= 1 * this.movementSpeed;
+          break;
+        case "backward":
+          this.position.z += 1 * this.movementSpeed;
+          break;
+        case "left":
+          this.position.x -= 1 * this.movementSpeed;
+          break;
+        case "right":
+          this.position.x += 1 * this.movementSpeed;
+          break;
+      }
+    });
+    // If any keys were pressed, assume we need to update position matrix
+    if (pressedKeys.length > 0) this.updatePosition();
+  };
+
+  subscribeToInput() {
+    inputStore.subscribe(this.handleInput);
   }
 
   debugUI() {
