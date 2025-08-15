@@ -1,8 +1,14 @@
 import inputStore, { InputStoreStateKeys } from "../store/input";
+import musicStore, { MusicStoreStateKeys } from "../store/music";
 
 export type KeyboardInputMap = Record<
   KeyboardEvent["key"],
   InputStoreStateKeys
+>;
+
+export type KeyboardMusicInputMap = Record<
+  KeyboardEvent["key"],
+  MusicStoreStateKeys
 >;
 
 export default class KeyboardInput {
@@ -14,11 +20,19 @@ export default class KeyboardInput {
    * Maps keyboard keys to input stores
    */
   keyMap: KeyboardInputMap;
+  /**
+   * Maps keyboard keys to input stores
+   */
+  musicKeyMap: KeyboardMusicInputMap;
 
-  constructor(keyMap: KeyboardInputMap) {
+  constructor(
+    keyMap: KeyboardInputMap,
+    musicKeyMap: KeyboardMusicInputMap = {}
+  ) {
     // Attach events
     this.attachEvents();
     this.state = {};
+    this.musicKeyMap = musicKeyMap;
     this.keyMap = keyMap;
   }
 
@@ -49,12 +63,25 @@ export default class KeyboardInput {
   };
 
   handleKeyPress(key: KeyboardEvent["key"], pressed: boolean) {
-    if (!(key in this.keyMap)) return;
-
-    const inputKey = this.keyMap[key];
-    inputStore.setState((prevInput) => ({
-      ...prevInput,
-      [inputKey]: pressed,
-    }));
+    // Handle general keymap (like WASD nav)
+    if (key in this.keyMap) {
+      const inputKey = this.keyMap[key];
+      inputStore.setState((prevInput) => ({
+        ...prevInput,
+        [inputKey]: pressed,
+      }));
+    }
+    // Handle music keys
+    if (key in this.musicKeyMap) {
+      const inputKey = this.musicKeyMap[key];
+      musicStore.setState((prevInput) => ({
+        ...prevInput,
+        [inputKey]: {
+          pressed,
+          // Assume keyboard keys are always max velocity
+          velocity: 1,
+        },
+      }));
+    }
   }
 }
