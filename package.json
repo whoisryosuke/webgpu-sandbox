@@ -16,6 +16,7 @@
     "vite": "^6.0.5"
   },
   "dependencies": {
+    "tonal": "^6.4.2",
     "tweakpane": "^4.0.5",
     "wgpu-matrix": "^3.3.0"
   }

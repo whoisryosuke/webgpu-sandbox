@@ -295,6 +295,7 @@ export default class WebGPURenderer {
     );
 
     this.audio = new AudioPlayer();
+    await this.audio.load();
 
     // Setup events
     this.setupResize();

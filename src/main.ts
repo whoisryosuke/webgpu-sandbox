@@ -49,8 +49,8 @@ async function main() {
   // Setup keyboard
   input.enableKeyboard(DEFAULT_KEYBOARD_MAP, MUSIC_KEY_MAP);
 
-  // Check input
-  musicStore.subscribe((store) => console.log("music store updated", store));
+  // DEBUG: Check input
+  // musicStore.subscribe((store) => console.log("music store updated", store));
 
   const test = {
     x: 0,
