@@ -46,8 +46,13 @@ export default class Camera {
   // The "up" vector (Y-up)
   up = vec3.create(0, 1, 0);
   fov = Math.PI / 4;
+
+  // Navigation Logic
   navigating = false;
   navigationMode: NavigationModes = "pan";
+  moving = false;
+  // Horizontal and Vertical movement as a 2D vector (-1 to 1 range)
+  movementDirection = [0, 0];
   movementSpeed = 0.1;
   mouseInitial: Vector2D = {
     x: 0,
@@ -308,6 +313,9 @@ export default class Camera {
     });
   }
 
+  /**
+   * Move the camera in Z space. Not actually zooming.
+   */
   zoom(zoomAmount: number) {
     this.position.z += zoomAmount;
     this.updatePosition();
@@ -318,6 +326,9 @@ export default class Camera {
     this.zoom(event.deltaY / 100);
   };
 
+  /**
+   * Attach click events to canvas to enable camera navigation
+   */
   handleEvents() {
     const canvas = document.getElementById("gpu-canvas");
     if (!canvas) return;
@@ -352,30 +363,46 @@ export default class Camera {
     ]);
   }
 
+  /**
+   * Callback for input store. Receives latest input data.
+   * Handles camera movement using input store.
+   */
   handleInput = (input: InputStoreState) => {
-    const pressedKeys = Object.entries(input).filter(
-      ([_, pressed]) => pressed
-    ) as [InputStoreStateKeys, boolean][];
-    pressedKeys.forEach(([key]) => {
-      switch (key) {
-        case "forward":
-          this.position.z -= 1 * this.movementSpeed;
-          break;
-        case "backward":
-          this.position.z += 1 * this.movementSpeed;
-          break;
-        case "left":
-          this.position.x -= 1 * this.movementSpeed;
-          break;
-        case "right":
-          this.position.x += 1 * this.movementSpeed;
-          break;
-      }
+    const pressedKeys = Object.entries(input) as [
+      InputStoreStateKeys,
+      boolean
+    ][];
+    let isMoving = false;
+
+    this.movementDirection[1] = input.forward ? 1 : input.backward ? -1 : 0;
+    this.movementDirection[0] = input.right ? 1 : input.left ? -1 : 0;
+
+    pressedKeys.forEach(([key, pressed]) => {
+      if (pressed) isMoving = true;
     });
+
+    this.moving = isMoving;
+
     // If any keys were pressed, assume we need to update position matrix
     if (pressedKeys.length > 0) this.updatePosition();
   };
 
+  /**
+   * Render loop for camera
+   * Any logic that needs to happen before render (like animating camera movement)
+   */
+  loop() {
+    if (this.moving) {
+      this.position.x += this.movementDirection[0] * this.movementSpeed;
+      this.position.y += this.movementDirection[1] * this.movementSpeed;
+
+      this.updatePosition();
+    }
+  }
+
+  /**
+   * Subscribe to the input store for camera movement
+   */
   subscribeToInput() {
     inputStore.subscribe(this.handleInput);
   }

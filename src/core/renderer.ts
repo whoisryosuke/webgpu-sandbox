@@ -316,6 +316,7 @@ export default class WebGPURenderer {
       let waveform;
       if (this.audio) waveform = this.audio.waveform();
       if (waveform) this.particleSystem?.updateAudioBuffer(waveform.buffer);
+      this.camera.loop();
 
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
