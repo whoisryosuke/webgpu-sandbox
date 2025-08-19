@@ -1,7 +1,32 @@
 import Mesh from "../mesh";
 import { Vector2D, Vector3D } from "../vertex";
 
-export async function loadObj(url: string) {
+export type RGBColor = {
+  r: number;
+  g: number;
+  b: number;
+};
+export type RGBAColor = RGBColor & {
+  a: number;
+};
+
+const generateDefaultColor = () => ({ r: 0, g: 0, b: 0 });
+
+export interface OBJMaterial {
+  shininess: number;
+  ambient: RGBColor;
+  diffuse: RGBColor;
+  specular: RGBColor;
+  emissive: RGBColor;
+  opticalDensity: number;
+  opacity: number;
+  /**
+   * Illumination method
+   */
+  illum: number;
+}
+
+export async function fetchTextFile(url: string) {
   try {
     const response = await fetch(url);
 
@@ -19,6 +44,100 @@ export async function loadObj(url: string) {
   }
 }
 
+const RGBA_COLOR_INDEX_MAP = {
+  0: "r",
+  1: "g",
+  2: "b",
+  3: "a",
+};
+
+function parseRGBParts(parts: string[]) {
+  const [label, ...colorStrings] = parts;
+
+  // Take [0, 0, 1] array and convert to {r:0,g:0,b:1} object
+  return colorStrings.reduce((merge, colorString, index) => {
+    const label =
+      RGBA_COLOR_INDEX_MAP[index as keyof typeof RGBA_COLOR_INDEX_MAP];
+    return {
+      ...merge,
+      [label]: parseFloat(colorString),
+    };
+  }, {} as RGBColor);
+}
+
+export async function loadMaterialLibrary(
+  materialFilename: string,
+  objPath: string
+) {
+  // OBJ provides material file name, but we need to grab it from correct folder
+  // which we assume is same folder as OBJ file
+  // Note: Since it's web-based, it can't support PC paths (e.g. `C:/image.png` or `/Home/User/image.png`)
+  const materialPath = `${objPath}/${materialFilename}`;
+  const materialFile = await fetchTextFile(materialPath);
+
+  console.log("material file", materialFile);
+
+  // Grab every line in document
+  const lines = materialFile.split("\n");
+  let material: OBJMaterial = {
+    shininess: 0,
+    ambient: generateDefaultColor(),
+    diffuse: generateDefaultColor(),
+    specular: generateDefaultColor(),
+    emissive: generateDefaultColor(),
+    opticalDensity: 0,
+    opacity: 0,
+    illum: 0,
+  };
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+
+    // Skip empty lines and comments
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    // Get each part of each line (e.g. the label, then 1/2/3, etc)
+    const parts = trimmedLine.split(" ");
+
+    console.log("material parts", parts);
+
+    switch (parts[0]) {
+      case "Ka": // Ambient Color
+        material.ambient = parseRGBParts(parts);
+        break;
+      case "Kd": // Diffuse Color
+        material.diffuse = parseRGBParts(parts);
+        break;
+      case "Ks": // Specular Color
+        material.specular = parseRGBParts(parts);
+        break;
+      case "Ke": // Emissive Color
+        material.emissive = parseRGBParts(parts);
+        break;
+      case "Ns": // Specular shininess
+        material.shininess = parseFloat(parts[1]);
+        break;
+      case "d": // Specular shininess
+        material.opacity = parseFloat(parts[1]);
+        break;
+      case "Ni": // Optical Density
+        material.opticalDensity = parseFloat(parts[1]);
+        break;
+      case "illum": // Optical Density
+        material.illum = parseInt(parts[1]);
+        break;
+    }
+  }
+
+  console.log("[OBJ] Material created", material);
+  return material;
+}
+
+export async function loadObj(url: string) {
+  return await fetchTextFile(url);
+}
+
 interface Face {
   // The "indices" to each
   vertices: [number, number, number];
@@ -26,12 +145,14 @@ interface Face {
   uvs: [number, number];
 }
 
-export function importObj(objString: string) {
+export async function importObj(url: string) {
+  const objString = await fetchTextFile(url);
+
   let vertices: Vector3D[] = [];
   let normals: Vector3D[] = [];
   let uvs: Vector2D[] = []; // Optional
   let faces: Face[] = [];
-  //   let materials: Material[] = [];
+  let materials: OBJMaterial[] = [];
   //   let currentMaterialName: string | null = null;
   //   const materialMap: { [name: string]: Material } = {};
 
@@ -121,12 +242,16 @@ export function importObj(objString: string) {
         faces.push(face);
         break;
 
-      //   case "mtllib": // Material Library
-      //     const materialLibPath = parts[1];
-      //     // In a real implementation, you'd load the MTL file here and populate materialMap.
-      //     // It's also a text file you can parse
-      //     console.log(`Material library: ${materialLibPath}`);
-      //     break;
+      case "mtllib": // Material Library
+        const materialLibPath = parts[1];
+        console.log(`Material library: ${materialLibPath}`);
+
+        // Get relative path to model. We assume material is in same folder.
+        // We split path by `/`, remove last part with OBJ file, and return path
+        const objPath = url.split("/").slice(0, -1).join("/");
+        const material = await loadMaterialLibrary(materialLibPath, objPath);
+        materials.push(material);
+        break;
 
       //   case "usemtl": // Use Material
       //     currentMaterialName = parts[1];
@@ -195,5 +320,6 @@ export function importObj(objString: string) {
   return {
     vertices: mesh.vertices,
     indices: meshIndicesTypedArray,
+    materials,
   };
 }
