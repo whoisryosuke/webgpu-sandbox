@@ -52,7 +52,7 @@ export default class WebGPURenderer {
     // const { vertices, indices } = generateCube(0.1);
     // const objFile = await loadObj("/models/suzanne-tri-untextured.obj");
     // const objFile = await loadObj("/models/classic-piano/classic-piano.obj");
-    const { vertices, indices } = await importObj(
+    const { vertices, indices, materials } = await importObj(
       "/models/plane-with-texture/plane-with-texture.obj"
     );
 
@@ -217,7 +217,11 @@ export default class WebGPURenderer {
     this.camera.updateScreenSize(this.canvas.width, this.canvas.height);
 
     // Load texture
-    const imageBitmap = await loadImage("./images/3dscan.png");
+    // const imageBitmap = await loadImage("./images/3dscan.png");
+    const imageBitmap =
+      materials.length > 0 && materials[0].textures.diffuse
+        ? materials[0].textures.diffuse
+        : await loadImage("./images/3dscan.png");
     this.texture = createTexture(this.device, imageBitmap);
 
     // Create a sampler with linear filtering for smooth interpolation.

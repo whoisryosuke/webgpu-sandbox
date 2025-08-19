@@ -1,4 +1,5 @@
 import Mesh from "../mesh";
+import { loadImage } from "../texture";
 import { Vector2D, Vector3D } from "../vertex";
 
 export type RGBColor = {
@@ -12,6 +13,13 @@ export type RGBAColor = RGBColor & {
 
 const generateDefaultColor = () => ({ r: 0, g: 0, b: 0 });
 
+export interface OBJTexture {
+  ambient?: ImageBitmap;
+  diffuse?: ImageBitmap;
+  specular?: ImageBitmap;
+  emissive?: ImageBitmap;
+}
+
 export interface OBJMaterial {
   shininess: number;
   ambient: RGBColor;
@@ -24,6 +32,7 @@ export interface OBJMaterial {
    * Illumination method
    */
   illum: number;
+  textures: OBJTexture;
 }
 
 export async function fetchTextFile(url: string) {
@@ -88,6 +97,7 @@ export async function loadMaterialLibrary(
     opticalDensity: 0,
     opacity: 0,
     illum: 0,
+    textures: {},
   };
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -127,6 +137,25 @@ export async function loadMaterialLibrary(
       case "illum": // Optical Density
         material.illum = parseInt(parts[1]);
         break;
+    }
+
+    // Handle texture maps
+    if (parts[0].startsWith("map_")) {
+      const imagePath = `${objPath}/${parts[1]}`;
+      const label = parts[0].replace("map_", "");
+      switch (label) {
+        case "Ka": // Ambient Color
+          material.textures.ambient = await loadImage(imagePath);
+          break;
+        case "Kd": // Diffuse Color
+          material.textures.diffuse = await loadImage(imagePath);
+          break;
+        case "Ks": // Specular Color
+          material.textures.specular = await loadImage(imagePath);
+          break;
+        case "Ke": // Emissive Color
+          material.textures.emissive = await loadImage(imagePath);
+      }
     }
   }
 
