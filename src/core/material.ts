@@ -1,4 +1,5 @@
 import { RGBAColor, rgbaToArray } from "./import/obj";
+import { createTexture, createTextureBindGroup } from "./texture";
 import { Vector2D, Vector4D } from "./vertex";
 
 const BUFFER_OFFSET_MAP = {
@@ -33,9 +34,16 @@ const DEFAULT_UNIFORMS: MaterialUniform = {
   time: 0,
 };
 
+export type MaterialTextureData = {
+  texture: GPUTexture;
+  bindGroup: GPUBindGroup;
+};
+
 export type MaterialTextureMap = Partial<{
-  diffuse: GPUTexture;
+  diffuse: MaterialTextureData;
 }>;
+
+export type MaterialTextureTypes = keyof MaterialTextureMap;
 
 export default class Material {
   name: string;
@@ -98,5 +106,25 @@ export default class Material {
 
   setTime(time: number) {
     this.uniformValues.set([time], BUFFER_OFFSET_MAP["time"]);
+  }
+
+  addTexture(
+    device: GPUDevice,
+    renderPipeline: GPURenderPipeline,
+    image: ImageBitmap,
+    sampler: GPUSampler,
+    type: MaterialTextureTypes
+  ) {
+    const texture = createTexture(device, image);
+    const bindGroup = createTextureBindGroup(
+      device,
+      renderPipeline,
+      texture,
+      sampler
+    );
+    this.textures[type] = {
+      texture,
+      bindGroup,
+    };
   }
 }

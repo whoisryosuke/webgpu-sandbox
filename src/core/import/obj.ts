@@ -98,6 +98,7 @@ export async function loadMaterialLibrary(
   // Grab every line in document
   const lines = materialFile.split("\n");
   let material: OBJMaterial = {
+    name: "Material",
     shininess: 0,
     ambient: generateDefaultColor(),
     diffuse: generateDefaultColor(),
@@ -207,12 +208,17 @@ const DEFAULT_OBJECT = {
   material: "Default",
 };
 
-export async function importObj(url: string, device: GPUDevice) {
+export async function importObj(
+  url: string,
+  device: GPUDevice,
+  renderPipeline: GPURenderPipeline,
+  sampler: GPUSampler
+) {
   const objString = await fetchTextFile(url);
 
   let objects: OBJObject[] = [];
   let object: OBJObject = { ...DEFAULT_OBJECT };
-  const materials: Record<string, Material> = [];
+  const materials: Record<string, Material> = {};
   // const materialMap: { [name: string]: Material } = {};
 
   // Grab every line in document
@@ -231,10 +237,11 @@ export async function importObj(url: string, device: GPUDevice) {
     switch (parts[0]) {
       case "o": // Object
         // Save last mesh
-        objects.push({ ...object });
+        if (object.name != "") objects.push({ ...object });
 
         // Create new object
         object = { ...DEFAULT_OBJECT };
+        object.name = parts[1];
         break;
 
       case "v": // Vertex
@@ -343,9 +350,12 @@ export async function importObj(url: string, device: GPUDevice) {
 
         // Do we have materials? Create them.
         if (objMaterial.textures.diffuse)
-          material.textures.diffuse = createTexture(
+          material.addTexture(
             device,
-            objMaterial.textures.diffuse
+            renderPipeline,
+            objMaterial.textures.diffuse,
+            sampler,
+            "diffuse"
           );
 
         // materials.push(material);
@@ -363,7 +373,7 @@ export async function importObj(url: string, device: GPUDevice) {
   }
 
   // Last object? Push onto stack.
-  objects.push({ ...object });
+  if (object.name != "") objects.push({ ...object });
 
   // console.log("imported OBJ", { vertices, normals, uvs, faces });
 

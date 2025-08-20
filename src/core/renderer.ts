@@ -46,22 +46,6 @@ export default class WebGPURenderer {
       format: "bgra8unorm",
     });
 
-    // Setup vertex buffer
-    // Generate vertices for a plane (a rectangle aka 2 tris)
-    // const { vertices, indices } = generatePlane(0.5);
-    // const { vertices, indices } = generateCube(0.1);
-    // const { vertices, indices, materials } = await importObj(
-    //   "/models/plane-with-texture/plane-with-texture.obj"
-    // );
-    const { meshes, materials } = await importObj(
-      "/models/suzanne-tri-untextured.obj",
-      this.device
-    );
-    // const { meshes, materials } = await importObj(
-    //   "/models/classic-piano/classic-piano.obj",
-    //   this.device
-    // );
-
     // Setup shader
     const shaderModule = this.device.createShaderModule({
       code: defaultShader,
@@ -171,6 +155,27 @@ export default class WebGPURenderer {
     };
     const renderPipeline = this.device.createRenderPipeline(pipelineDescriptor);
 
+    // Create a sampler with linear filtering for smooth interpolation.
+    const sampler = this.device.createSampler({
+      magFilter: "linear",
+      minFilter: "linear",
+    });
+
+    // Setup vertex buffer
+    // Generate vertices for a plane (a rectangle aka 2 tris)
+    // const { vertices, indices } = generatePlane(0.5);
+    // const { vertices, indices } = generateCube(0.1);
+    const { meshes, materials } = await importObj(
+      "/models/plane-with-texture/plane-with-texture.obj",
+      //   "/models/classic-piano/classic-piano.obj",
+      // "/models/suzanne-tri-untextured.obj",
+      this.device,
+      renderPipeline,
+      sampler
+    );
+
+    console.log("[RENDERER] loaded OBJ", meshes, materials);
+
     // Create a uniform buffer
     // The buffer size is equivalent to all the data we put into our shader struct
     const uniformBufferSize =
@@ -204,27 +209,6 @@ export default class WebGPURenderer {
     // Create the camera
     this.camera = new Camera(this.device);
     this.camera.updateScreenSize(this.canvas.width, this.canvas.height);
-
-    // Load texture
-    // const imageBitmap = await loadImage("./images/3dscan.png");
-    const imageBitmap =
-      materials.length > 0 && materials[0].textures.diffuse
-        ? materials[0].textures.diffuse
-        : await loadImage("./images/3dscan.png");
-    this.texture = createTexture(this.device, imageBitmap);
-
-    // Create a sampler with linear filtering for smooth interpolation.
-    const sampler = this.device.createSampler({
-      magFilter: "linear",
-      minFilter: "linear",
-    });
-
-    const textureBindGroup = createTextureBindGroup(
-      this.device,
-      renderPipeline,
-      this.texture,
-      sampler
-    );
 
     // Instance uniforms
     // Update the uniform buffer with instance matrices (translation)
@@ -373,9 +357,11 @@ export default class WebGPURenderer {
       passEncoder.setPipeline(renderPipeline);
 
       meshes.forEach((mesh) => {
+        // console.log("[RENDERING] mesh:", mesh.name);
         const material = materials[mesh.material];
+        // console.log("[RENDERING] material", mesh.material, material);
         passEncoder.setBindGroup(0, uniformBindGroup);
-        passEncoder.setBindGroup(1, textureBindGroup);
+        passEncoder.setBindGroup(1, material.textures.diffuse?.bindGroup);
         passEncoder.setVertexBuffer(0, mesh.vertexBuffer);
         passEncoder.setIndexBuffer(mesh.indexBuffer, "uint16");
         passEncoder.drawIndexed(mesh.indices.length, instanceCount);
