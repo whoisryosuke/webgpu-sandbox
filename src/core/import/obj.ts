@@ -1,5 +1,9 @@
-import Mesh from "../mesh";
-import { loadImage } from "../texture";
+import Material, { MaterialUniform } from "../material";
+import Mesh, {
+  generateIndexBufferData,
+  generateVertexBufferData,
+} from "../mesh";
+import { createTexture, loadImage } from "../texture";
 import { Vector2D, Vector3D } from "../vertex";
 
 export type RGBColor = {
@@ -11,6 +15,10 @@ export type RGBAColor = RGBColor & {
   a: number;
 };
 
+export function rgbaToArray(color: RGBAColor) {
+  return [color.r, color.g, color.b, color.a];
+}
+
 const generateDefaultColor = () => ({ r: 0, g: 0, b: 0 });
 
 export interface OBJTexture {
@@ -21,6 +29,7 @@ export interface OBJTexture {
 }
 
 export interface OBJMaterial {
+  name: string;
   shininess: number;
   ambient: RGBColor;
   diffuse: RGBColor;
@@ -113,6 +122,9 @@ export async function loadMaterialLibrary(
     console.log("material parts", parts);
 
     switch (parts[0]) {
+      case "newmtl": // Material name
+        material.name = parts[1];
+        break;
       case "Ka": // Ambient Color
         material.ambient = parseRGBParts(parts);
         break;
@@ -174,16 +186,34 @@ interface Face {
   uvs: [number, number];
 }
 
-export async function importObj(url: string) {
+type OBJObject = {
+  name: string;
+  vertices: Vector3D[];
+  normals: Vector3D[];
+  uvs: Vector2D[];
+  faces: Face[];
+  /**
+   * Key that maps to material cache
+   */
+  material: string;
+};
+
+const DEFAULT_OBJECT = {
+  name: "",
+  vertices: [],
+  normals: [],
+  uvs: [],
+  faces: [],
+  material: "Default",
+};
+
+export async function importObj(url: string, device: GPUDevice) {
   const objString = await fetchTextFile(url);
 
-  let vertices: Vector3D[] = [];
-  let normals: Vector3D[] = [];
-  let uvs: Vector2D[] = []; // Optional
-  let faces: Face[] = [];
-  let materials: OBJMaterial[] = [];
-  //   let currentMaterialName: string | null = null;
-  //   const materialMap: { [name: string]: Material } = {};
+  let objects: OBJObject[] = [];
+  let object: OBJObject = { ...DEFAULT_OBJECT };
+  const materials: Record<string, Material> = [];
+  // const materialMap: { [name: string]: Material } = {};
 
   // Grab every line in document
   const lines = objString.split("\n");
@@ -199,9 +229,17 @@ export async function importObj(url: string) {
     const parts = trimmedLine.split(" ");
 
     switch (parts[0]) {
+      case "o": // Object
+        // Save last mesh
+        objects.push({ ...object });
+
+        // Create new object
+        object = { ...DEFAULT_OBJECT };
+        break;
+
       case "v": // Vertex
         if (parts.length === 4) {
-          vertices.push({
+          object.vertices.push({
             x: parseFloat(parts[1]),
             y: parseFloat(parts[2]),
             z: parseFloat(parts[3]),
@@ -213,7 +251,7 @@ export async function importObj(url: string) {
 
       case "vn": // Normal
         if (parts.length === 4) {
-          normals.push({
+          object.normals.push({
             x: parseFloat(parts[1]),
             y: parseFloat(parts[2]),
             z: parseFloat(parts[3]),
@@ -225,7 +263,7 @@ export async function importObj(url: string) {
 
       case "vt": // Texture Coordinate
         if (parts.length === 3) {
-          uvs.push({
+          object.uvs.push({
             x: parseFloat(parts[1]),
             y: parseFloat(parts[2]),
           });
@@ -268,7 +306,7 @@ export async function importObj(url: string) {
           i++;
         });
 
-        faces.push(face);
+        object.faces.push(face);
         break;
 
       case "mtllib": // Material Library
@@ -278,51 +316,94 @@ export async function importObj(url: string) {
         // Get relative path to model. We assume material is in same folder.
         // We split path by `/`, remove last part with OBJ file, and return path
         const objPath = url.split("/").slice(0, -1).join("/");
-        const material = await loadMaterialLibrary(materialLibPath, objPath);
-        materials.push(material);
+        const objMaterial = await loadMaterialLibrary(materialLibPath, objPath);
+
+        // Convert OBJ material to standard renderer material
+        const material = new Material(device, objMaterial.name);
+
+        // Setup uniform data with material properties
+        const uniforms: MaterialUniform = {
+          color: {
+            r: objMaterial.diffuse.r,
+            g: objMaterial.diffuse.g,
+            b: objMaterial.diffuse.b,
+            a: objMaterial.opacity,
+          },
+          scale: {
+            x: 1,
+            y: 1,
+          },
+          offset: {
+            x: 0,
+            y: 0,
+          },
+          time: 0,
+        };
+        material.setUniforms(uniforms);
+
+        // Do we have materials? Create them.
+        if (objMaterial.textures.diffuse)
+          material.textures.diffuse = createTexture(
+            device,
+            objMaterial.textures.diffuse
+          );
+
+        // materials.push(material);
+        materials[objMaterial.name] = material;
         break;
 
-      //   case "usemtl": // Use Material
-      //     currentMaterialName = parts[1];
-      //     if (!materialMap[currentMaterialName]) {
-      //       materialMap[currentMaterialName] = { name: currentMaterialName };
-      //     }
-      //     break;
+      case "usemtl": // Use Material
+        const currentMaterialName = parts[1];
+        object.material = currentMaterialName;
+        break;
 
       default:
         console.warn(`Unknown command: ${trimmedLine}`); // Handle unknown commands gracefully
     }
   }
 
+  // Last object? Push onto stack.
+  objects.push({ ...object });
+
   // console.log("imported OBJ", { vertices, normals, uvs, faces });
 
   // Convert OBJ-style data to vertex buffer
-  let meshPositions: Vector3D[] = [];
-  let meshNormals: Vector3D[] = [];
-  let meshUvs: Vector2D[] = [];
-  let meshIndices: number[] = [];
-  faces.forEach((face, index) => {
-    face.vertices.forEach((vertexId) => {
-      const vertex = vertices[vertexId];
-      meshPositions.push({ ...vertex });
-    });
+  const meshes = objects.map((obj) => {
+    let meshPositions: Vector3D[] = [];
+    let meshNormals: Vector3D[] = [];
+    let meshUvs: Vector2D[] = [];
+    let meshIndices: number[] = [];
 
-    const lastIndex = meshIndices.length - 1;
-    meshIndices.push(lastIndex + 1, lastIndex + 2, lastIndex + 3);
+    obj.faces.forEach((face, index) => {
+      face.vertices.forEach((vertexId) => {
+        const vertex = obj.vertices[vertexId];
+        meshPositions.push({ ...vertex });
+      });
 
-    face.normals.forEach((normalId) => {
-      const normal = normals[normalId];
-      meshNormals.push({ ...normal });
+      const lastIndex = meshIndices.length - 1;
+      meshIndices.push(lastIndex + 1, lastIndex + 2, lastIndex + 3);
+
+      face.normals.forEach((normalId) => {
+        const normal = obj.normals[normalId];
+        meshNormals.push({ ...normal });
+      });
+      face.uvs.forEach((uvId) => {
+        let uv = obj.uvs[uvId];
+        if (!uv)
+          uv = {
+            x: 0,
+            y: 0,
+          };
+        meshUvs.push({ ...uv });
+      });
     });
-    face.uvs.forEach((uvId) => {
-      let uv = uvs[uvId];
-      if (!uv)
-        uv = {
-          x: 0,
-          y: 0,
-        };
-      meshUvs.push({ ...uv });
+    const mesh = new Mesh(device, {
+      name: obj.name,
+      vertices: generateVertexBufferData(meshPositions, meshNormals, meshUvs),
+      indices: generateIndexBufferData(meshIndices),
+      material: obj.material,
     });
+    return mesh;
   });
 
   // console.log("creating mesh", {
@@ -331,24 +412,10 @@ export async function importObj(url: string) {
   //   meshUvs,
   //   meshIndices,
   // });
-
-  const mesh = new Mesh();
-  mesh.position = meshPositions;
-  mesh.normals = meshNormals;
-  mesh.uvs = meshUvs;
-  mesh.generateVertexBufferData();
-
-  // Because we use Uint16 each row needs to be 4 bytes
-  // 1 number x 2 bytes = 2 bytes per element
-  // So we pad when necessary
-  // Basically make sure this is an even number
-  const paddedSize = Math.ceil(meshIndices.length / 2) * 2;
-  const meshIndicesTypedArray = new Uint16Array(paddedSize);
-  meshIndicesTypedArray.set(meshIndices);
+  // mesh.materials = materials;
 
   return {
-    vertices: mesh.vertices,
-    indices: meshIndicesTypedArray,
+    meshes,
     materials,
   };
 }

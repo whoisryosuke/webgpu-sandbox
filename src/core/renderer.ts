@@ -50,28 +50,17 @@ export default class WebGPURenderer {
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
     // const { vertices, indices } = generateCube(0.1);
-    // const objFile = await loadObj("/models/suzanne-tri-untextured.obj");
-    // const objFile = await loadObj("/models/classic-piano/classic-piano.obj");
-    const { vertices, indices, materials } = await importObj(
-      "/models/plane-with-texture/plane-with-texture.obj"
+    // const { vertices, indices, materials } = await importObj(
+    //   "/models/plane-with-texture/plane-with-texture.obj"
+    // );
+    const { meshes, materials } = await importObj(
+      "/models/suzanne-tri-untextured.obj",
+      this.device
     );
-
-    console.log("vertices", vertices);
-    console.log("indices", indices);
-
-    const vertexBuffer = this.device.createBuffer({
-      label: "Vertex buffer",
-      size: vertices.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(vertexBuffer, 0, vertices.buffer);
-
-    const indexBuffer = this.device.createBuffer({
-      label: "Index buffer",
-      size: indices.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(indexBuffer, 0, indices);
+    // const { meshes, materials } = await importObj(
+    //   "/models/classic-piano/classic-piano.obj",
+    //   this.device
+    // );
 
     // Setup shader
     const shaderModule = this.device.createShaderModule({
@@ -294,12 +283,12 @@ export default class WebGPURenderer {
     this.createCanvasTextures();
 
     // Create particle system
-    this.particleSystem = new ParticleSystem(
-      this.device,
-      this.camera,
-      vertices,
-      indices
-    );
+    // this.particleSystem = new ParticleSystem(
+    //   this.device,
+    //   this.camera,
+    //   vertices,
+    //   indices
+    // );
 
     this.audio = new AudioPlayer();
     await this.audio.load();
@@ -382,11 +371,15 @@ export default class WebGPURenderer {
 
       // Render
       passEncoder.setPipeline(renderPipeline);
-      passEncoder.setBindGroup(0, uniformBindGroup);
-      passEncoder.setBindGroup(1, textureBindGroup);
-      passEncoder.setVertexBuffer(0, vertexBuffer);
-      passEncoder.setIndexBuffer(indexBuffer, "uint16");
-      passEncoder.drawIndexed(indices.length, instanceCount);
+
+      meshes.forEach((mesh) => {
+        const material = materials[mesh.material];
+        passEncoder.setBindGroup(0, uniformBindGroup);
+        passEncoder.setBindGroup(1, textureBindGroup);
+        passEncoder.setVertexBuffer(0, mesh.vertexBuffer);
+        passEncoder.setIndexBuffer(mesh.indexBuffer, "uint16");
+        passEncoder.drawIndexed(mesh.indices.length, instanceCount);
+      });
 
       passEncoder.end();
       // Finish rendering
