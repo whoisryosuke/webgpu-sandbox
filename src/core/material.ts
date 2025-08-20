@@ -5,9 +5,8 @@ import { Vector2D, Vector3D, Vector4D } from "./vertex";
 const BUFFER_OFFSET_MAP = {
   color: 0,
   scale: 4,
-  offset: 7,
-  texture: 10,
-  debugUV: 11,
+  offset: 8,
+  flags: 12,
 };
 
 export type MaterialUniform = {
@@ -17,8 +16,7 @@ export type MaterialUniform = {
   /**
    * 0 = No, 1 = Yes
    */
-  texture: number;
-  debugUV: number;
+  flags: Vector4D;
 };
 
 const DEFAULT_UNIFORMS: MaterialUniform = {
@@ -38,8 +36,12 @@ const DEFAULT_UNIFORMS: MaterialUniform = {
     y: 0,
     z: 0,
   },
-  texture: 0,
-  debugUV: 0,
+  flags: {
+    x: 0,
+    y: 0,
+    z: 0,
+    w: 0,
+  },
 };
 
 export type MaterialTextureMap = Partial<{
@@ -100,10 +102,10 @@ export default class Material {
     const uniformBufferSize =
       4 * 4 + // color is 4 32bit floats (4bytes each)
       3 * 4 + // scale is 3 32bit floats (4bytes each)
+      1 * 4 + // padding
       3 * 4 + // offset is 3 32bit floats (4bytes each)
-      1 * 4 + // texture is 1 32bit floats (4bytes each)
-      1 * 4 + // debug_uv is 1 32bit floats (4bytes each)
-      4 * 4; // padding
+      1 * 4 + // padding
+      4 * 4; // flags is 4 32bit floats (4bytes each)
     this.uniformBuffer = device.createBuffer({
       label: "Local Uniform buffer",
       size: uniformBufferSize,
@@ -119,9 +121,7 @@ export default class Material {
     this.setColor(uniform.color);
     this.setScale(uniform.scale);
     this.setOffset(uniform.offset);
-    this.setDebugUV(uniform.debugUV);
-    console.log("setting uniform tex", uniform.texture);
-    this.setTextureUniform(uniform.texture);
+    this.setFlags(uniform.flags);
     console.log("uniforms", this.uniformValues);
 
     this.updateUniforms(device);
@@ -149,12 +149,11 @@ export default class Material {
     );
   }
 
-  setDebugUV(debugUV: number) {
-    this.uniformValues.set([debugUV], BUFFER_OFFSET_MAP["debugUV"]);
-  }
-
-  setTextureUniform(texture: number) {
-    this.uniformValues.set([texture], BUFFER_OFFSET_MAP["texture"]);
+  setFlags(flags: Vector4D) {
+    this.uniformValues.set(
+      [flags.x, flags.y, flags.z, flags.w],
+      BUFFER_OFFSET_MAP["flags"]
+    );
   }
 
   addTexture(

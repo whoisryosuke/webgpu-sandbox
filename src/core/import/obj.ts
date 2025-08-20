@@ -369,8 +369,12 @@ export async function importObj(
             y: 0,
             z: 0,
           },
-          texture: objMaterial.textures.diffuse ? 1 : 0,
-          debugUV: 0,
+          flags: {
+            x: objMaterial.textures.diffuse ? 1 : 0,
+            y: 0,
+            z: 0,
+            w: 0,
+          },
         };
 
         // Update material with new uniform data

@@ -14,8 +14,7 @@ struct LocalUniforms {
   color: vec4f,
   scale: vec3f,
   offset: vec3f,
-  texture: f32,
-  debug_uv: f32
+  flags: vec4f,
 };
 struct CameraUniforms {
   model_matrix: mat4x4<f32>,
@@ -71,7 +70,7 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
 
   // return vec4f(0.0,0.0,locals.texture, 1.0);
 
-  if(locals.texture > 0.5) {
+  if(locals.flags.x > 0.5) {
     return textureColor;
   }
   // return fragData.color;

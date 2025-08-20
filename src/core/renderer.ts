@@ -349,6 +349,7 @@ export default class WebGPURenderer {
         // console.log("[RENDERING] mesh:", mesh.name);
         const material = materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
+        material.updateUniforms(this.device);
         passEncoder.setBindGroup(1, material.uniformBindGroup);
         if (material && material.textureBindGroup) {
           passEncoder.setBindGroup(2, material.textureBindGroup);
