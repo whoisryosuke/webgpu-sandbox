@@ -165,7 +165,7 @@ export default class WebGPURenderer {
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
     // const { vertices, indices } = generateCube(0.1);
-    const { meshes, materials } = await importObj(
+    const { meshes: planeMeshes, materials: planeMats } = await importObj(
       "/models/plane-with-texture/plane-with-texture.obj",
       //   "/models/classic-piano/classic-piano.obj",
       // "/models/suzanne-tri-untextured.obj",
@@ -173,6 +173,16 @@ export default class WebGPURenderer {
       renderPipeline,
       sampler
     );
+
+    const { meshes: monkeyMeshes, materials: monkeyMats } = await importObj(
+      "/models/suzanne-tri-untextured.obj",
+      this.device,
+      renderPipeline,
+      sampler
+    );
+
+    const meshes = [...planeMeshes, ...monkeyMeshes];
+    const materials = { ...planeMats, ...monkeyMats };
 
     console.log("[RENDERER] loaded OBJ", meshes, materials);
 
@@ -361,7 +371,9 @@ export default class WebGPURenderer {
         const material = materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
         passEncoder.setBindGroup(0, uniformBindGroup);
-        passEncoder.setBindGroup(1, material.textures.diffuse?.bindGroup);
+        if (material && material.textureBindGroup) {
+          passEncoder.setBindGroup(1, material.textureBindGroup);
+        }
         passEncoder.setVertexBuffer(0, mesh.vertexBuffer);
         passEncoder.setIndexBuffer(mesh.indexBuffer, "uint16");
         passEncoder.drawIndexed(mesh.indices.length, instanceCount);

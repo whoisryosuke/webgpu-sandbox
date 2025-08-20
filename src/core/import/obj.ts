@@ -91,6 +91,7 @@ export async function loadMaterialLibrary(
   // which we assume is same folder as OBJ file
   // Note: Since it's web-based, it can't support PC paths (e.g. `C:/image.png` or `/Home/User/image.png`)
   const materialPath = `${objPath}/${materialFilename}`;
+  console.log("loading mat", materialPath);
   const materialFile = await fetchTextFile(materialPath);
 
   console.log("material file", materialFile);
@@ -98,7 +99,7 @@ export async function loadMaterialLibrary(
   // Grab every line in document
   const lines = materialFile.split("\n");
   let material: OBJMaterial = {
-    name: "Material",
+    name: "Default",
     shininess: 0,
     ambient: generateDefaultColor(),
     diffuse: generateDefaultColor(),
@@ -323,6 +324,7 @@ export async function importObj(
         // Get relative path to model. We assume material is in same folder.
         // We split path by `/`, remove last part with OBJ file, and return path
         const objPath = url.split("/").slice(0, -1).join("/");
+        console.log("[OBJ] Loading material file...", materialLibPath, objPath);
         const objMaterial = await loadMaterialLibrary(materialLibPath, objPath);
 
         // Convert OBJ material to standard renderer material
@@ -349,7 +351,7 @@ export async function importObj(
         material.setUniforms(uniforms);
 
         // Do we have materials? Create them.
-        if (objMaterial.textures.diffuse)
+        if (objMaterial.textures.diffuse) {
           material.addTexture(
             device,
             renderPipeline,
@@ -357,6 +359,9 @@ export async function importObj(
             sampler,
             "diffuse"
           );
+        } else {
+          material.createDefaultTexture(device, renderPipeline, sampler);
+        }
 
         // materials.push(material);
         materials[objMaterial.name] = material;

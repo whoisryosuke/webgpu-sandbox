@@ -34,13 +34,8 @@ const DEFAULT_UNIFORMS: MaterialUniform = {
   time: 0,
 };
 
-export type MaterialTextureData = {
-  texture: GPUTexture;
-  bindGroup: GPUBindGroup;
-};
-
 export type MaterialTextureMap = Partial<{
-  diffuse: MaterialTextureData;
+  diffuse: GPUTexture;
 }>;
 
 export type MaterialTextureTypes = keyof MaterialTextureMap;
@@ -58,6 +53,7 @@ export default class Material {
    * Mapping textures to material properties
    */
   textures: MaterialTextureMap = {};
+  textureBindGroup?: GPUBindGroup;
 
   constructor(device: GPUDevice, name: string) {
     this.name = name;
@@ -116,15 +112,52 @@ export default class Material {
     type: MaterialTextureTypes
   ) {
     const texture = createTexture(device, image);
-    const bindGroup = createTextureBindGroup(
+    this.textures[type] = texture;
+
+    this.createTextureBindGroup(
+      device,
+      renderPipeline,
+      sampler,
+      this.textures[type]
+    );
+  }
+
+  createTextureBindGroup(
+    device: GPUDevice,
+    renderPipeline: GPURenderPipeline,
+    sampler: GPUSampler,
+    texture: GPUTexture
+  ) {
+    // We create a bind group to contain the texture and it's buffer
+    // Ideally this bind group is shared between all images,
+    // and we create different slots for each (like diffuse vs emissive).
+    // For now we only support 1: diffuse
+    this.textureBindGroup = createTextureBindGroup(
       device,
       renderPipeline,
       texture,
       sampler
     );
-    this.textures[type] = {
-      texture,
-      bindGroup,
-    };
+  }
+
+  createDefaultTexture(
+    device: GPUDevice,
+    renderPipeline: GPURenderPipeline,
+    sampler: GPUSampler
+  ) {
+    const texture = device.createTexture({
+      size: [1, 1],
+      format: "rgba8unorm",
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    // Fill with white or neutral color
+    device.queue.writeTexture(
+      { texture },
+      new Uint8Array([255, 255, 255, 255]), // White pixel
+      { bytesPerRow: 4 },
+      { width: 1, height: 1 }
+    );
+
+    this.createTextureBindGroup(device, renderPipeline, sampler, texture);
   }
 }

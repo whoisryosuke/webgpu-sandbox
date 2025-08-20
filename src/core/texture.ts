@@ -27,6 +27,9 @@ export function createTexture(device: GPUDevice, imageBitmap: ImageBitmap) {
   return cubeTexture;
 }
 
+/**
+ * Creates a bind group containing a single texture and sampler
+ */
 export function createTextureBindGroup(
   device: GPUDevice,
   renderPipeline: GPURenderPipeline,
