@@ -328,7 +328,7 @@ export async function importObj(
         const objMaterial = await loadMaterialLibrary(materialLibPath, objPath);
 
         // Convert OBJ material to standard renderer material
-        const material = new Material(device, objMaterial.name);
+        const material = new Material(device, renderPipeline, objMaterial.name);
 
         // Setup uniform data with material properties
         const uniforms: MaterialUniform = {
@@ -343,12 +343,19 @@ export async function importObj(
             y: 1,
           },
           offset: {
-            x: 0,
+            x: 0.5,
             y: 0,
           },
-          time: 0,
+          texture: objMaterial.textures.diffuse ? 1 : 0,
+          debugUV: 0,
         };
-        material.setUniforms(uniforms);
+        console.log(
+          "[MATERIAL] setting uniforms",
+          material.name,
+          uniforms,
+          objMaterial
+        );
+        material.setUniforms(device, uniforms);
 
         // Do we have materials? Create them.
         if (objMaterial.textures.diffuse) {

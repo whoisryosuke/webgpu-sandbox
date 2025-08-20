@@ -81,38 +81,38 @@ export default class WebGPURenderer {
 
     // Ideally we'd setup a bind group layout for our bind group
     // but since the render pipeline is set to `auto`, we don't need it
-    const bindGroupLayout = this.device.createBindGroupLayout({
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "uniform",
-          },
-        },
-        {
-          binding: 1,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "uniform",
-          },
-        },
-        {
-          binding: 2,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "read-only-storage",
-          },
-        },
-        {
-          binding: 3,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "storage",
-          },
-        },
-      ],
-    });
+    // const bindGroupLayout = this.device.createBindGroupLayout({
+    //   entries: [
+    //     {
+    //       binding: 0,
+    //       visibility: GPUShaderStage.VERTEX,
+    //       buffer: {
+    //         type: "uniform",
+    //       },
+    //     },
+    //     {
+    //       binding: 1,
+    //       visibility: GPUShaderStage.VERTEX,
+    //       buffer: {
+    //         type: "uniform",
+    //       },
+    //     },
+    //     {
+    //       binding: 2,
+    //       visibility: GPUShaderStage.VERTEX,
+    //       buffer: {
+    //         type: "read-only-storage",
+    //       },
+    //     },
+    //     {
+    //       binding: 3,
+    //       visibility: GPUShaderStage.VERTEX,
+    //       buffer: {
+    //         type: "storage",
+    //       },
+    //     },
+    //   ],
+    // });
 
     // Render pipeline
     const pipelineDescriptor: GPURenderPipelineDescriptor = {
@@ -186,36 +186,6 @@ export default class WebGPURenderer {
 
     console.log("[RENDERER] loaded OBJ", meshes, materials);
 
-    // Create a uniform buffer
-    // The buffer size is equivalent to all the data we put into our shader struct
-    const uniformBufferSize =
-      4 * 4 + // color is 4 32bit floats (4bytes each)
-      2 * 4 + // scale is 2 32bit floats (4bytes each)
-      2 * 4 + // offset is 2 32bit floats (4bytes each)
-      1 * 4 + // time is 1 32bit floats (4bytes each)
-      3 * 4; // we need some padding to meet 48 requirement;
-    const uniformBuffer = this.device.createBuffer({
-      label: "Local Uniform buffer",
-      size: uniformBufferSize,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    console.log("uniformBufferSize", uniformBufferSize);
-    // Create an buffer-friendly array (aka `TypedArray`) and use the buffer size
-    const uniformValues = new Float32Array(uniformBufferSize / 4);
-    // offsets to the various uniform values in float32 indices
-    const kColorOffset = 0;
-    const kScaleOffset = 4;
-    const kOffsetOffset = 6;
-    const kTimeOffset = 7;
-
-    // Create the uniforms
-    // Because we initialize the array with a length, but not a real array,
-    // we need to explicitly set each "slot" in the array
-    uniformValues.set([0, 0, 1, 1], kColorOffset); // set the color
-    uniformValues.set([1, 1], kScaleOffset); // set the scale
-    uniformValues.set([0, 0], kOffsetOffset); // set the offset
-    uniformValues.set([0], kTimeOffset); // set the time
-
     // Create the camera
     this.camera = new Camera(this.device);
     this.camera.updateScreenSize(this.canvas.width, this.canvas.height);
@@ -247,27 +217,36 @@ export default class WebGPURenderer {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
+    // Global Uniforms
+    const uniformBufferSize =
+      1 * 4 + // time is 1 32bit floats (4bytes each)
+      3 * 4; // we need some padding to meet 48 requirement;
+    const globalUniformBuffer = this.device.createBuffer({
+      label: "Global Uniform buffer",
+      size: uniformBufferSize,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    console.log("uniformBufferSize", uniformBufferSize);
+
+    // Create an buffer-friendly array (aka `TypedArray`) and use the buffer size
+    const uniformValues = new Float32Array(uniformBufferSize / 4);
+    uniformValues.set([0], 0);
+
     // Create a bind group to hold the uniforms
-    const uniformBindGroup = this.device.createBindGroup({
-      label: "Local Uniforms",
+    const globalUniformBindGroup = this.device.createBindGroup({
+      label: "Global Uniforms",
       layout: renderPipeline.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
           resource: {
-            buffer: uniformBuffer,
+            buffer: globalUniformBuffer,
           },
         },
         {
           binding: 1,
           resource: {
             buffer: this.camera.buffer,
-          },
-        },
-        {
-          binding: 2,
-          resource: {
-            buffer: instanceUniformBuffer,
           },
         },
       ],
@@ -311,12 +290,7 @@ export default class WebGPURenderer {
 
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
-      const timeUniformData = timestamp;
-      const aspect = this.canvas.width / this.canvas.height;
-      // uniformValues[kScaleOffset] = 0.5 / aspect;
-      // uniformValues[kScaleOffset + 1] = 0.5;
-      uniformValues[kOffsetOffset + 1] = frameCount;
-      uniformValues[kTimeOffset + 1] = timestamp;
+      uniformValues.set([timestamp], 0);
 
       // Calculate delta time in seconds
       const deltaTime = (timestamp - prevTime) / 1000;
@@ -354,25 +328,26 @@ export default class WebGPURenderer {
       this.particleSystem?.render(passEncoder);
 
       // Update uniforms
-      this.device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+      // this.device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
       // this.camera.animateRotation(deltaTime);
       this.camera.updateRotation();
-      this.device.queue.writeBuffer(
-        instanceUniformBuffer,
-        0,
-        instanceUniformValue
-      );
+      // this.device.queue.writeBuffer(
+      //   instanceUniformBuffer,
+      //   0,
+      //   instanceUniformValue
+      // );
 
       // Render
       passEncoder.setPipeline(renderPipeline);
+      passEncoder.setBindGroup(0, globalUniformBindGroup);
 
       meshes.forEach((mesh) => {
         // console.log("[RENDERING] mesh:", mesh.name);
         const material = materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
-        passEncoder.setBindGroup(0, uniformBindGroup);
+        passEncoder.setBindGroup(1, material.uniformBindGroup);
         if (material && material.textureBindGroup) {
-          passEncoder.setBindGroup(1, material.textureBindGroup);
+          passEncoder.setBindGroup(2, material.textureBindGroup);
         }
         passEncoder.setVertexBuffer(0, mesh.vertexBuffer);
         passEncoder.setIndexBuffer(mesh.indexBuffer, "uint16");

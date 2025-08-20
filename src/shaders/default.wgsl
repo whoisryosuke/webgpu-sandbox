@@ -6,11 +6,16 @@ struct VertexOut {
   @location(3) uv : vec2f
 }
 
+struct GlobalUniforms {
+  time: f32,
+}
+
 struct LocalUniforms {
   color: vec4f,
   scale: vec2f,
   offset: vec2f,
-  time: f32
+  texture: f32,
+  debug_uv: f32
 };
 struct CameraUniforms {
   model_matrix: mat4x4<f32>,
@@ -18,11 +23,12 @@ struct CameraUniforms {
   projection_matrix: mat4x4<f32>,
 }
 
-@group(0) @binding(0) var<uniform> locals: LocalUniforms;
+@group(0) @binding(0) var<uniform> globals: GlobalUniforms;
 @group(0) @binding(1) var<uniform> camera: CameraUniforms;
-@group(0) @binding(2) var<storage, read> instances : array<mat4x4<f32>>;
-@group(1) @binding(0) var mySampler: sampler;
-@group(1) @binding(1) var myTexture: texture_2d<f32>;
+@group(1) @binding(0) var<uniform> locals: LocalUniforms;
+// @group(0) @binding(2) var<storage, read> instances : array<mat4x4<f32>>;
+@group(2) @binding(0) var mySampler: sampler;
+@group(2) @binding(1) var myTexture: texture_2d<f32>;
  
 @vertex
 fn vertex_main(
@@ -39,10 +45,13 @@ fn vertex_main(
   // let transformedPosition = instances[0] * vec4<f32>(position, 1.0); // Apply instance matrix
   // let world_position = camera.model_matrix * transformedPosition;
 
-  let instance_position = instances[instanceIndex] * vec4<f32>(position, 1.0);
-  let world_position = camera.model_matrix * instance_position * vec4<f32>(locals.scale, 1.0, 1.0);
+  // let instance_position = instances[instanceIndex] * vec4<f32>(position, 1.0);
+  let local_position = vec4<f32>(position, 1.0); 
+  let world_position = camera.model_matrix * local_position * vec4<f32>(locals.scale, 1.0, 1.0);
 
 
+  // Use globals
+  let simple_math = globals.time;
   // let world_position = camera.model_matrix * vec4<f32>(position, 1.0);
   
   let view_position = camera.view_matrix * world_position;
@@ -69,7 +78,12 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
 {
   
   let textureColor = textureSample(myTexture, mySampler, fragData.uv);
-  return textureColor;
+
+  // return vec4f(0.0,0.0,locals.texture, 1.0);
+
+  if(locals.texture > 0.5) {
+    return textureColor;
+  }
   // return fragData.color;
-  // return vec4f(fragData.uv, 1.0, 1.0);
+  return vec4f(fragData.uv, 1.0, 1.0);
 }

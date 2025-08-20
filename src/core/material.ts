@@ -6,14 +6,19 @@ const BUFFER_OFFSET_MAP = {
   color: 0,
   scale: 4,
   offset: 6,
-  time: 7,
+  texture: 8,
+  debugUV: 9,
 };
 
 export type MaterialUniform = {
   color: RGBAColor;
   scale: Vector2D;
   offset: Vector2D;
-  time: number;
+  /**
+   * 0 = No, 1 = Yes
+   */
+  texture: number;
+  debugUV: number;
 };
 
 const DEFAULT_UNIFORMS: MaterialUniform = {
@@ -31,7 +36,8 @@ const DEFAULT_UNIFORMS: MaterialUniform = {
     x: 0,
     y: 0,
   },
-  time: 0,
+  texture: 0,
+  debugUV: 0,
 };
 
 export type MaterialTextureMap = Partial<{
@@ -45,6 +51,7 @@ export default class Material {
 
   // GPU Specific
   uniformBuffer!: GPUBuffer;
+  uniformBindGroup!: GPUBindGroup;
   /**
    * The uniform data we submit to buffer. This is where you update uniform properties.
    */
@@ -55,10 +62,34 @@ export default class Material {
   textures: MaterialTextureMap = {};
   textureBindGroup?: GPUBindGroup;
 
-  constructor(device: GPUDevice, name: string) {
+  constructor(
+    device: GPUDevice,
+    renderPipeline: GPURenderPipeline,
+    name: string
+  ) {
     this.name = name;
     this.createUniformBuffer(device);
-    this.setUniforms(DEFAULT_UNIFORMS);
+    this.setUniforms(device, DEFAULT_UNIFORMS);
+    this.createUniformsBindGroup(device, renderPipeline);
+  }
+  createUniformsBindGroup(
+    device: GPUDevice,
+    renderPipeline: GPURenderPipeline
+  ) {
+    // Create a bind group to hold the uniforms
+    // @TODO: Move to material + remove camera and move it to a global uniform bind group
+    this.uniformBindGroup = device.createBindGroup({
+      label: "Local Uniforms",
+      layout: renderPipeline.getBindGroupLayout(1),
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: this.uniformBuffer,
+          },
+        },
+      ],
+    });
   }
 
   createUniformBuffer(device: GPUDevice) {
@@ -68,8 +99,9 @@ export default class Material {
       4 * 4 + // color is 4 32bit floats (4bytes each)
       2 * 4 + // scale is 2 32bit floats (4bytes each)
       2 * 4 + // offset is 2 32bit floats (4bytes each)
-      1 * 4 + // time is 1 32bit floats (4bytes each)
-      3 * 4; // we need some padding to meet 48 requirement;
+      1 * 4 + // texture is 1 32bit floats (4bytes each)
+      1 * 4 + // debug_uv is 1 32bit floats (4bytes each)
+      2 * 4; // we need some padding to meet 48 requirement;
     this.uniformBuffer = device.createBuffer({
       label: "Local Uniform buffer",
       size: uniformBufferSize,
@@ -81,11 +113,20 @@ export default class Material {
     this.uniformValues = new Float32Array(uniformBufferSize / 4);
   }
 
-  setUniforms(uniform: MaterialUniform) {
+  setUniforms(device: GPUDevice, uniform: MaterialUniform) {
     this.setColor(uniform.color);
     this.setScale(uniform.scale);
     this.setOffset(uniform.offset);
-    this.setTime(uniform.time);
+    this.setDebugUV(uniform.debugUV);
+    console.log("setting uniform tex", uniform.texture);
+    this.setTextureUniform(uniform.texture);
+    console.log("uniforms", this.uniformValues);
+
+    this.updateUniforms(device);
+  }
+
+  updateUniforms(device: GPUDevice) {
+    device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues.buffer);
   }
 
   setColor(color: RGBAColor) {
@@ -100,8 +141,12 @@ export default class Material {
     this.uniformValues.set([offset.x, offset.y], BUFFER_OFFSET_MAP["offset"]);
   }
 
-  setTime(time: number) {
-    this.uniformValues.set([time], BUFFER_OFFSET_MAP["time"]);
+  setDebugUV(debugUV: number) {
+    this.uniformValues.set([debugUV], BUFFER_OFFSET_MAP["debugUV"]);
+  }
+
+  setTextureUniform(texture: number) {
+    this.uniformValues.set([texture], BUFFER_OFFSET_MAP["texture"]);
   }
 
   addTexture(

@@ -35,7 +35,7 @@ export function createTextureBindGroup(
   renderPipeline: GPURenderPipeline,
   texture: GPUTexture,
   sampler: GPUSampler,
-  groupIndex: number = 1
+  groupIndex: number = 2
 ) {
   const textureBindGroup = device.createBindGroup({
     label: "Textures",
