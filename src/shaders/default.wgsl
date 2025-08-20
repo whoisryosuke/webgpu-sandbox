@@ -12,8 +12,8 @@ struct GlobalUniforms {
 
 struct LocalUniforms {
   color: vec4f,
-  scale: vec2f,
-  offset: vec2f,
+  scale: vec3f,
+  offset: vec3f,
   texture: f32,
   debug_uv: f32
 };
@@ -41,33 +41,23 @@ fn vertex_main(
 {
   var output : VertexOut;
 
-  // Transform position through model, view, and projection matrices
-  // let transformedPosition = instances[0] * vec4<f32>(position, 1.0); // Apply instance matrix
-  // let world_position = camera.model_matrix * transformedPosition;
-
   // let instance_position = instances[instanceIndex] * vec4<f32>(position, 1.0);
-  let local_position = vec4<f32>(position, 1.0); 
-  let world_position = camera.model_matrix * local_position * vec4<f32>(locals.scale, 1.0, 1.0);
-
+  let scaled_position = position * locals.scale + locals.offset;
+  let local_position = vec4<f32>(scaled_position, 1.0);
+  let world_position = camera.model_matrix * local_position;
 
   // Use globals
   let simple_math = globals.time;
-  // let world_position = camera.model_matrix * vec4<f32>(position, 1.0);
   
   let view_position = camera.view_matrix * world_position;
   output.position = camera.projection_matrix * view_position;
   
   output.world_position = world_position.xyz;
   
-  // Use normal for simple lighting-based coloring
-  // var lightDir = normalize(vec3f(1.0, 1.0, 1.0));
-  // var lightAmount = max(dot(normal, lightDir), 0.3); // Minimum ambient
-  // output.color = vec4f(abs(normal) * lightAmount, 1.0);
-  // output.color = vec4f(uv, 1.0, 1.0) * vec4f(normal, 1.0);
-  // output.color = vec4f(uv, 1.0, 1.0);
   output.color = vec4f(normal, 1.0);
   
-  output.normal = normal;
+  output.normal = normalize((camera.model_matrix * vec4<f32>(normal, 0.0)).xyz);
+  // output.normal = normal;
   output.uv = uv;
   
   return output;

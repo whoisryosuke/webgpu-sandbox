@@ -1,19 +1,19 @@
 import { RGBAColor, rgbaToArray } from "./import/obj";
 import { createTexture, createTextureBindGroup } from "./texture";
-import { Vector2D, Vector4D } from "./vertex";
+import { Vector2D, Vector3D, Vector4D } from "./vertex";
 
 const BUFFER_OFFSET_MAP = {
   color: 0,
   scale: 4,
-  offset: 6,
-  texture: 8,
-  debugUV: 9,
+  offset: 7,
+  texture: 10,
+  debugUV: 11,
 };
 
 export type MaterialUniform = {
   color: RGBAColor;
-  scale: Vector2D;
-  offset: Vector2D;
+  scale: Vector3D;
+  offset: Vector3D;
   /**
    * 0 = No, 1 = Yes
    */
@@ -31,10 +31,12 @@ const DEFAULT_UNIFORMS: MaterialUniform = {
   scale: {
     x: 1,
     y: 1,
+    z: 1,
   },
   offset: {
     x: 0,
     y: 0,
+    z: 0,
   },
   texture: 0,
   debugUV: 0,
@@ -97,11 +99,11 @@ export default class Material {
     // The buffer size is equivalent to all the data we put into our shader struct
     const uniformBufferSize =
       4 * 4 + // color is 4 32bit floats (4bytes each)
-      2 * 4 + // scale is 2 32bit floats (4bytes each)
-      2 * 4 + // offset is 2 32bit floats (4bytes each)
+      3 * 4 + // scale is 3 32bit floats (4bytes each)
+      3 * 4 + // offset is 3 32bit floats (4bytes each)
       1 * 4 + // texture is 1 32bit floats (4bytes each)
       1 * 4 + // debug_uv is 1 32bit floats (4bytes each)
-      2 * 4; // we need some padding to meet 48 requirement;
+      4 * 4; // padding
     this.uniformBuffer = device.createBuffer({
       label: "Local Uniform buffer",
       size: uniformBufferSize,
@@ -133,12 +135,18 @@ export default class Material {
     this.uniformValues.set(rgbaToArray(color), BUFFER_OFFSET_MAP["color"]);
   }
 
-  setScale(scale: Vector2D) {
-    this.uniformValues.set([scale.x, scale.y], BUFFER_OFFSET_MAP["scale"]);
+  setScale(scale: Vector3D) {
+    this.uniformValues.set(
+      [scale.x, scale.y, scale.z],
+      BUFFER_OFFSET_MAP["scale"]
+    );
   }
 
-  setOffset(offset: Vector2D) {
-    this.uniformValues.set([offset.x, offset.y], BUFFER_OFFSET_MAP["offset"]);
+  setOffset(offset: Vector3D) {
+    this.uniformValues.set(
+      [offset.x, offset.y, offset.z],
+      BUFFER_OFFSET_MAP["offset"]
+    );
   }
 
   setDebugUV(debugUV: number) {
