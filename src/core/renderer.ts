@@ -5,6 +5,8 @@ import ParticleSystem from "./particle-system";
 import AudioPlayer from "./audio";
 import { importObj, loadObj } from "./import/obj";
 import { createTexture, createTextureBindGroup, loadImage } from "./texture";
+import { generateCube } from "../primitives/cube";
+import Mesh from "./mesh";
 
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
@@ -164,7 +166,7 @@ export default class WebGPURenderer {
     // Setup vertex buffer
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
-    // const { vertices, indices } = generateCube(0.1);
+    const cubeMesh = generateCube(this.device, 0.1);
     const { meshes: planeMeshes, materials: planeMats } = await importObj(
       "/models/plane-with-texture/plane-with-texture.obj",
       //   "/models/classic-piano/classic-piano.obj",
@@ -175,13 +177,15 @@ export default class WebGPURenderer {
     );
 
     const { meshes: monkeyMeshes, materials: monkeyMats } = await importObj(
+      // "/models/torus-knot-tri-untextured.obj",
+      // "/models/cube-tri-untextured.obj",
       "/models/suzanne-tri-untextured.obj",
       this.device,
       renderPipeline,
       sampler
     );
 
-    const meshes = [...planeMeshes, ...monkeyMeshes];
+    const meshes = [...planeMeshes, ...monkeyMeshes, cubeMesh];
     const materials = { ...planeMats, ...monkeyMats };
 
     console.log("[RENDERER] loaded OBJ", meshes, materials);
