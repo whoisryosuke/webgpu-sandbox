@@ -1,7 +1,10 @@
-import Mesh from "../core/mesh";
+import Mesh, {
+  generateIndexBufferData,
+  generateVertexBufferData,
+} from "../core/mesh";
 import { Vector2D, Vector3D } from "../core/vertex";
 
-export function generateCube(size: number) {
+export function generateCube(device: GPUDevice, size: number = 1) {
   // 24 vertices total (4 vertices per face * 6 faces)
   const positions: Vector3D[] = [
     { x: -size, y: -size, z: size },
@@ -132,14 +135,12 @@ export function generateCube(size: number) {
     - Indices: ${indices.length}
     - Max index: ${Math.max(...indices)}`);
 
-  const mesh = new Mesh();
-  mesh.position = positions;
-  mesh.indices = indices;
-  mesh.normals = normals;
-  mesh.uvs = uvs;
+  const mesh = new Mesh(device, {
+    name: "Cube",
+    vertices: generateVertexBufferData(positions, normals, uvs),
+    indices: indices,
+    // material: obj.material,
+  });
 
-  // Convert our data to vertex buffer compatible data
-  mesh.generateVertexBufferData();
-
-  return { vertices: mesh.vertices, indices };
+  return mesh;
 }
