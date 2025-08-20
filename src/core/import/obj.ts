@@ -370,10 +370,10 @@ export async function importObj(
             z: 0,
           },
           flags: {
-            x: objMaterial.textures.diffuse ? 1 : 0,
-            y: 0,
-            z: 0,
-            w: 0,
+            texture: objMaterial.textures.diffuse ? true : false,
+            debugUv: false,
+            debugNormals: false,
+            debugColor: false,
           },
         };
 

@@ -9,6 +9,13 @@ const BUFFER_OFFSET_MAP = {
   flags: 12,
 };
 
+export type MaterialFlags = {
+  texture: boolean;
+  debugUv: boolean;
+  debugNormals: boolean;
+  debugColor: boolean;
+};
+
 export type MaterialUniform = {
   color: RGBAColor;
   scale: Vector3D;
@@ -16,7 +23,7 @@ export type MaterialUniform = {
   /**
    * 0 = No, 1 = Yes
    */
-  flags: Vector4D;
+  flags: MaterialFlags;
 };
 
 const DEFAULT_UNIFORMS: MaterialUniform = {
@@ -37,10 +44,10 @@ const DEFAULT_UNIFORMS: MaterialUniform = {
     z: 0,
   },
   flags: {
-    x: 0,
-    y: 0,
-    z: 0,
-    w: 0,
+    texture: false,
+    debugUv: false,
+    debugNormals: false,
+    debugColor: false,
   },
 };
 
@@ -149,9 +156,14 @@ export default class Material {
     );
   }
 
-  setFlags(flags: Vector4D) {
+  setFlags(flags: MaterialFlags) {
     this.uniformValues.set(
-      [flags.x, flags.y, flags.z, flags.w],
+      [
+        Number(flags.texture),
+        Number(flags.debugUv),
+        Number(flags.debugNormals),
+        Number(flags.debugColor),
+      ],
       BUFFER_OFFSET_MAP["flags"]
     );
   }
