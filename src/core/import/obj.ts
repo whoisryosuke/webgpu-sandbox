@@ -21,6 +21,9 @@ export function rgbaToArray(color: RGBAColor) {
 
 const generateDefaultColor = () => ({ r: 0, g: 0, b: 0 });
 
+/**
+ * Map of all textures attached to an OBJ
+ */
 export interface OBJTexture {
   ambient?: ImageBitmap;
   diffuse?: ImageBitmap;
@@ -28,12 +31,22 @@ export interface OBJTexture {
   emissive?: ImageBitmap;
 }
 
+/**
+ * We load all the OBJ file data into this object
+ * Then convert this to a renderer-comptaible "Material" later
+ */
 export interface OBJMaterial {
   name: string;
   shininess: number;
   ambient: RGBColor;
+  /**
+   * The color you see
+   */
   diffuse: RGBColor;
   specular: RGBColor;
+  /**
+   * Outer glow
+   */
   emissive: RGBColor;
   opticalDensity: number;
   opacity: number;
@@ -83,6 +96,9 @@ function parseRGBParts(parts: string[]) {
   }, {} as RGBColor);
 }
 
+/**
+ * Load a `.mtl` file from server and parse into material
+ */
 export async function loadMaterialLibrary(
   materialFilename: string,
   objPath: string
@@ -91,10 +107,8 @@ export async function loadMaterialLibrary(
   // which we assume is same folder as OBJ file
   // Note: Since it's web-based, it can't support PC paths (e.g. `C:/image.png` or `/Home/User/image.png`)
   const materialPath = `${objPath}/${materialFilename}`;
-  console.log("loading mat", materialPath);
+  // console.log("[OBJ] loading mat", materialPath);
   const materialFile = await fetchTextFile(materialPath);
-
-  console.log("material file", materialFile);
 
   // Grab every line in document
   const lines = materialFile.split("\n");
@@ -121,8 +135,7 @@ export async function loadMaterialLibrary(
     // Get each part of each line (e.g. the label, then 1/2/3, etc)
     const parts = trimmedLine.split(" ");
 
-    console.log("material parts", parts);
-
+    // Process each property by it's label
     switch (parts[0]) {
       case "newmtl": // Material name
         material.name = parts[1];
@@ -153,7 +166,7 @@ export async function loadMaterialLibrary(
         break;
     }
 
-    // Handle texture maps
+    // Handle texture maps (always start with `map_`)
     if (parts[0].startsWith("map_")) {
       const imagePath = `${objPath}/${parts[1]}`;
       const label = parts[0].replace("map_", "");
@@ -173,7 +186,7 @@ export async function loadMaterialLibrary(
     }
   }
 
-  console.log("[OBJ] Material created", material);
+  // console.log("[OBJ] Material created", material);
   return material;
 }
 
@@ -200,14 +213,16 @@ type OBJObject = {
   material: string;
 };
 
-const DEFAULT_OBJECT = {
-  name: "",
-  vertices: [],
-  normals: [],
-  uvs: [],
-  faces: [],
-  material: "Default",
-};
+function createDefaultObject() {
+  return {
+    name: "",
+    vertices: [],
+    normals: [],
+    uvs: [],
+    faces: [],
+    material: "Default",
+  };
+}
 
 export async function importObj(
   url: string,
@@ -218,9 +233,8 @@ export async function importObj(
   const objString = await fetchTextFile(url);
 
   let objects: OBJObject[] = [];
-  let object: OBJObject = { ...DEFAULT_OBJECT };
+  let object: OBJObject = createDefaultObject();
   const materials: Record<string, Material> = {};
-  // const materialMap: { [name: string]: Material } = {};
 
   // Grab every line in document
   const lines = objString.split("\n");
@@ -236,13 +250,17 @@ export async function importObj(
     const parts = trimmedLine.split(" ");
 
     switch (parts[0]) {
+      // OBJ supports multiple objects in one file
+      // Each time we detect an object, we save last one and create fresh object
       case "o": // Object
-        // Save last mesh
+        // Save last mesh if it's not the first
         if (object.name != "") objects.push({ ...object });
 
         // Create new object
-        object = { ...DEFAULT_OBJECT };
+        object = createDefaultObject();
+        // Save the object name we parsed
         object.name = parts[1];
+        // console.log("[OBJ] Parsing object", object.name);
         break;
 
       case "v": // Vertex
@@ -287,6 +305,8 @@ export async function importObj(
           uvs: [0, 0],
         };
 
+        // console.log("[OBJ] Detected face", parts);
+
         // Break down the face (expect 3 for now, quads/n-gons not supported)
         parts.forEach((part, i) => {
           if (part == "f") return;
@@ -299,32 +319,30 @@ export async function importObj(
             // We parse the number and subtract 1 because OBJ indexing starts at 1 (not 0 like arrays)
             indices.push(subPart ? parseInt(subPart) - 1 : 0);
           });
-          // Didn't get enough values? Fill in the space with 0's
-          // @TODO: Maybe this isn't correct? How should we handle this?
+          // Didn't get enough values? Let user know OBJ is malformed possibly
           if (indices.length < 3) {
-            [...new Array(3)].forEach((_, indicesIndex) => {
-              indices[indicesIndex] = indices[indicesIndex] ?? 0;
-            });
+            console.error(
+              `[OBJ] Malformed face line: ${trimmedLine}.  Skipping face.`
+            );
+            return;
           }
 
           face.vertices[i - 1] = indices[0];
           face.uvs[i - 1] = indices[1];
           face.normals[i - 1] = indices[2];
-
-          i++;
         });
 
-        object.faces.push(face);
+        object.faces.push({ ...face });
         break;
 
       case "mtllib": // Material Library
         const materialLibPath = parts[1];
-        console.log(`Material library: ${materialLibPath}`);
+        // console.log(`[OBJ] Material library: ${materialLibPath}`);
 
         // Get relative path to model. We assume material is in same folder.
         // We split path by `/`, remove last part with OBJ file, and return path
         const objPath = url.split("/").slice(0, -1).join("/");
-        console.log("[OBJ] Loading material file...", materialLibPath, objPath);
+        // console.log("[OBJ] Loading material file...", materialLibPath, objPath);
         const objMaterial = await loadMaterialLibrary(materialLibPath, objPath);
 
         // Convert OBJ material to standard renderer material
@@ -341,23 +359,24 @@ export async function importObj(
           scale: {
             x: 1,
             y: 1,
+            z: 1,
           },
           offset: {
-            x: 0.5,
+            // x: Math.random(),
+            // y: Math.random(),
+            // z: Math.random(),
+            x: 0,
             y: 0,
+            z: 0,
           },
           texture: objMaterial.textures.diffuse ? 1 : 0,
           debugUV: 0,
         };
-        console.log(
-          "[MATERIAL] setting uniforms",
-          material.name,
-          uniforms,
-          objMaterial
-        );
+
+        // Update material with new uniform data
         material.setUniforms(device, uniforms);
 
-        // Do we have materials? Create them.
+        // Do we have textures? Create them using material
         if (objMaterial.textures.diffuse) {
           material.addTexture(
             device,
@@ -370,12 +389,14 @@ export async function importObj(
           material.createDefaultTexture(device, renderPipeline, sampler);
         }
 
-        // materials.push(material);
+        // Add material to cache
         materials[objMaterial.name] = material;
         break;
 
       case "usemtl": // Use Material
         const currentMaterialName = parts[1];
+        // Assign the material to an object
+        // This is the name/key of the material and refers to the material cache map
         object.material = currentMaterialName;
         break;
 
@@ -387,8 +408,6 @@ export async function importObj(
   // Last object? Push onto stack.
   if (object.name != "") objects.push({ ...object });
 
-  // console.log("imported OBJ", { vertices, normals, uvs, faces });
-
   // Convert OBJ-style data to vertex buffer
   const meshes = objects.map((obj) => {
     let meshPositions: Vector3D[] = [];
@@ -396,19 +415,25 @@ export async function importObj(
     let meshUvs: Vector2D[] = [];
     let meshIndices: number[] = [];
 
+    // Loop over each face and map the index to real data
     obj.faces.forEach((face, index) => {
+      // Vertices
       face.vertices.forEach((vertexId) => {
         const vertex = obj.vertices[vertexId];
         meshPositions.push({ ...vertex });
       });
 
-      const lastIndex = meshIndices.length - 1;
-      meshIndices.push(lastIndex + 1, lastIndex + 2, lastIndex + 3);
+      // Indices
+      const lastIndex = meshPositions.length - 3;
+      meshIndices.push(lastIndex, lastIndex + 1, lastIndex + 2);
 
+      // Normals
       face.normals.forEach((normalId) => {
         const normal = obj.normals[normalId];
         meshNormals.push({ ...normal });
       });
+
+      // UVs
       face.uvs.forEach((uvId) => {
         let uv = obj.uvs[uvId];
         if (!uv)
@@ -419,22 +444,17 @@ export async function importObj(
         meshUvs.push({ ...uv });
       });
     });
+
+    // Create a "mesh" containing the vertex + index data
     const mesh = new Mesh(device, {
       name: obj.name,
       vertices: generateVertexBufferData(meshPositions, meshNormals, meshUvs),
       indices: generateIndexBufferData(meshIndices),
+      // The name/key of the material in the global cache
       material: obj.material,
     });
     return mesh;
   });
-
-  // console.log("creating mesh", {
-  //   meshPositions,
-  //   meshNormals,
-  //   meshUvs,
-  //   meshIndices,
-  // });
-  // mesh.materials = materials;
 
   return {
     meshes,
