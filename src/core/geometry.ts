@@ -37,7 +37,7 @@ export function generateIndexBufferData(meshIndices: number[]) {
   return meshIndicesTypedArray;
 }
 
-export default class Mesh {
+export default class Geometry {
   name: string;
 
   /**

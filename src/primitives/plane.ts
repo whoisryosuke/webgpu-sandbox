@@ -1,4 +1,4 @@
-import Mesh from "../core/mesh";
+import Geometry from "../core/geometry";
 import {
   createVertexBufferData,
   Vector2D,
@@ -42,7 +42,7 @@ export function generatePlane(scale: number = 1.0, scaleY: number = 1.0) {
     - Indices: ${indices.length}
     - Max index: ${Math.max(...indices)}`);
 
-  const mesh = new Mesh();
+  const mesh = new Geometry();
   mesh.position = positions;
   mesh.indices = indices;
   mesh.normals = normals;

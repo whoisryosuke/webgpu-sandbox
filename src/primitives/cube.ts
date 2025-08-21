@@ -1,7 +1,7 @@
-import Mesh, {
+import Geometry, {
   generateIndexBufferData,
   generateVertexBufferData,
-} from "../core/mesh";
+} from "../core/geometry";
 import { Vector2D, Vector3D } from "../core/vertex";
 
 export function generateCube(device: GPUDevice, size: number = 1) {
@@ -135,7 +135,7 @@ export function generateCube(device: GPUDevice, size: number = 1) {
     - Indices: ${indices.length}
     - Max index: ${Math.max(...indices)}`);
 
-  const mesh = new Mesh(device, {
+  const mesh = new Geometry(device, {
     name: "Cube",
     vertices: generateVertexBufferData(positions, normals, uvs),
     indices: indices,

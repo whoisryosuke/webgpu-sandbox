@@ -6,7 +6,7 @@ import AudioPlayer from "./audio";
 import { importObj, loadObj } from "./import/obj";
 import { createTexture, createTextureBindGroup, loadImage } from "./texture";
 import { generateCube } from "../primitives/cube";
-import Mesh from "./mesh";
+import Geometry from "./geometry";
 
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;

@@ -1,8 +1,8 @@
 import Material, { MaterialUniform } from "../material";
-import Mesh, {
+import Geometry, {
   generateIndexBufferData,
   generateVertexBufferData,
-} from "../mesh";
+} from "../geometry";
 import { createTexture, loadImage } from "../texture";
 import { Vector2D, Vector3D } from "../vertex";
 
@@ -450,7 +450,7 @@ export async function importObj(
     });
 
     // Create a "mesh" containing the vertex + index data
-    const mesh = new Mesh(device, {
+    const mesh = new Geometry(device, {
       name: obj.name,
       vertices: generateVertexBufferData(meshPositions, meshNormals, meshUvs),
       indices: generateIndexBufferData(meshIndices),
