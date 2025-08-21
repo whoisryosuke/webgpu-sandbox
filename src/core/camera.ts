@@ -31,11 +31,18 @@ export default class Camera {
     height: 0,
   };
 
-  // The "eye"
+  // The "eye" (aka camera position)
   position: Vector3D = {
     x: 0,
     y: 0,
     z: 4.2,
+  };
+
+  // The target (what camera is looking at)
+  target: Vector3D = {
+    x: 0,
+    y: 0,
+    z: 0,
   };
   // Camera's rotation
   rotation: Vector3D = {
@@ -115,8 +122,8 @@ export default class Camera {
     // Create view matrix (camera looking at origin from distance)
     this.viewMatrix = mat4.lookAt(
       [this.position.x, this.position.y, this.position.z], // eye position
-      [0, 0, 0], // target
-      [0, 1, 0] // up vector
+      [this.target.x, this.target.y, this.target.z], // target
+      this.up // up vector
     );
   }
 
@@ -168,6 +175,16 @@ export default class Camera {
 
   updatePosition(position?: Vector3D) {
     if (position) this.position = position;
+
+    // Update buffer
+    this.updateViewMatrix();
+
+    // Update uniform buffer with new matrices
+    this.updateUniformBuffer();
+  }
+
+  updateTarget(target?: Vector3D) {
+    if (target) this.target = target;
 
     // Update buffer
     this.updateViewMatrix();
@@ -275,17 +292,17 @@ export default class Camera {
     const rightVector = this.getRightVector();
 
     // Scale the movement by speed
-    const scaledDeltaX = deltaX * speed;
-    const scaledDeltaY = deltaY * speed;
+    const scaledDeltaX = deltaX * speed * 0.1;
+    const scaledDeltaY = deltaY * speed * 0.1;
 
     // Calculate movement in world space
     const horizontalMovement = vec3.scale(rightVector, scaledDeltaX);
     const verticalMovement = vec3.scale(this.up, scaledDeltaY);
 
     // Apply movement to camera position
-    this.position.x += horizontalMovement[0] + verticalMovement[0];
-    this.position.y += horizontalMovement[1] + verticalMovement[1];
-    this.position.z += horizontalMovement[2] + verticalMovement[2];
+    this.target.x += horizontalMovement[0] + verticalMovement[0];
+    this.target.y += horizontalMovement[1] + -verticalMovement[1];
+    this.target.z += horizontalMovement[2] + verticalMovement[2];
 
     this.updatePosition();
   }
@@ -427,6 +444,36 @@ export default class Camera {
       {},
       positionHandler
     );
+
+    // Target
+    const targetHandler = (e: { value: any }) => {
+      console.log("cam change", e.value);
+      const newPos = e.value;
+      this.updateTarget(newPos);
+    };
+    DebugUIInstance.add(
+      "Camera",
+      {
+        target: {
+          x: this.target.x,
+          y: this.target.y,
+          z: this.target.z,
+        },
+      },
+      "target",
+      {},
+      targetHandler
+    );
+
+    DebugUIInstance.button("Camera", {
+      title: "Center Target",
+      onClick: () => {
+        this.target.x = 0;
+        this.target.y = 0;
+        this.target.z = 0;
+        this.updatePosition();
+      },
+    });
 
     // Rotation
     const rotationHandler = (e: { value: any }) => {
