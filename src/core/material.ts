@@ -1,3 +1,4 @@
+import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { RGBAColor, rgbaToArray } from "./import/obj";
 import { createTexture, createTextureBindGroup } from "./texture";
 import { Vector2D, Vector3D, Vector4D } from "./vertex";
@@ -91,7 +92,9 @@ export default class Material {
     // @TODO: Move to material + remove camera and move it to a global uniform bind group
     this.uniformBindGroup = device.createBindGroup({
       label: "Local Uniforms",
-      layout: renderPipeline.getBindGroupLayout(1),
+      layout: renderPipeline.getBindGroupLayout(
+        UNIFORM_BIND_GROUP_LAYOUT_IDS["material"]
+      ),
       entries: [
         {
           binding: 0,

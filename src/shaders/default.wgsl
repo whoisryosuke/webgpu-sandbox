@@ -11,6 +11,12 @@ struct GlobalUniforms {
 }
 
 struct LocalUniforms {
+  position: vec3f,
+  rotation: vec3f,
+  scale: vec3f,
+}
+
+struct MaterialUniforms {
   color: vec4f,
   scale: vec3f,
   offset: vec3f,
@@ -25,9 +31,10 @@ struct CameraUniforms {
 @group(0) @binding(0) var<uniform> globals: GlobalUniforms;
 @group(0) @binding(1) var<uniform> camera: CameraUniforms;
 @group(1) @binding(0) var<uniform> locals: LocalUniforms;
+@group(2) @binding(0) var<uniform> material: MaterialUniforms;
 // @group(0) @binding(2) var<storage, read> instances : array<mat4x4<f32>>;
-@group(2) @binding(0) var mySampler: sampler;
-@group(2) @binding(1) var myTexture: texture_2d<f32>;
+@group(3) @binding(0) var mySampler: sampler;
+@group(3) @binding(1) var myTexture: texture_2d<f32>;
  
 @vertex
 fn vertex_main(
@@ -40,8 +47,7 @@ fn vertex_main(
 {
   var output : VertexOut;
 
-  // let instance_position = instances[instanceIndex] * vec4<f32>(position, 1.0);
-  let scaled_position = position * locals.scale + locals.offset;
+  let scaled_position = position * locals.scale + locals.position + material.offset;
   let local_position = vec4<f32>(scaled_position, 1.0);
   let world_position = camera.model_matrix * local_position;
 
@@ -56,7 +62,6 @@ fn vertex_main(
   output.color = vec4f(normal, 1.0);
   
   output.normal = normalize((camera.model_matrix * vec4<f32>(normal, 0.0)).xyz);
-  // output.normal = normal;
   output.uv = uv;
   
   return output;
@@ -68,9 +73,9 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
   
   let textureColor = textureSample(myTexture, mySampler, fragData.uv);
 
-  // return vec4f(0.0,0.0,locals.texture, 1.0);
+  // return vec4f(0.0,0.0,material.texture, 1.0);
 
-  if(locals.flags.x > 0.5) {
+  if(material.flags.x > 0.5) {
     return textureColor;
   }
   // return fragData.color;

@@ -1,3 +1,5 @@
+import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
+
 export async function loadImage(url: string) {
   const response = await fetch(url);
   const imageBitmap = await createImageBitmap(await response.blob());
@@ -35,7 +37,7 @@ export function createTextureBindGroup(
   renderPipeline: GPURenderPipeline,
   texture: GPUTexture,
   sampler: GPUSampler,
-  groupIndex: number = 2
+  groupIndex: number = UNIFORM_BIND_GROUP_LAYOUT_IDS["texture"]
 ) {
   const textureBindGroup = device.createBindGroup({
     label: "Textures",

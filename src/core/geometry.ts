@@ -47,10 +47,6 @@ export default class Geometry {
    */
   vertices: Float32Array;
   indices: Uint16Array;
-  /**
-   * A key that maps to a global cache with all loaded mats
-   */
-  material: string;
 
   // Buffers
   vertexBuffer!: GPUBuffer;
@@ -61,18 +57,12 @@ export default class Geometry {
     data: {
       vertices: Float32Array;
       indices: Uint16Array;
-      /**
-       * A key that maps to a global cache with all loaded mats.
-       * The mesh only holds a reference to the materials which live elsewhere
-       */
-      material?: string;
       name?: string;
     }
   ) {
     this.name = data.name ?? "Mesh";
     this.vertices = data.vertices;
     this.indices = data.indices;
-    this.material = data.material ?? "Default";
 
     this.createBuffers(device);
   }

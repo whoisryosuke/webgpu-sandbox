@@ -9,24 +9,24 @@ type UniformDataTypes =
   | UniformPrimitiveDataTypes[]
   | Record<string, UniformPrimitiveDataTypes>
   | UniformPrimitiveDataTypes;
-type UniformsDataStructure = Record<string, UniformDataTypes>;
+export type UniformsDataStructure = Record<string, UniformDataTypes>;
 
 /**
  * Handles creating uniforms for storing data for shaders.
  * Creates a uniform buffer + bind group and offers setters for uniforms.
  */
-export class Uniform<UniformObject extends UniformsDataStructure> {
+export class Uniforms<UniformsObject extends UniformsDataStructure> {
   name: string;
 
   /**
    * The uniforms
    */
-  uniforms: UniformObject;
+  uniforms: UniformsObject;
   /**
    * Maps uniforms to their buffer alignment offset
    * Automatically generated when buffer size is calculated.
    */
-  uniformsMapping!: Record<keyof UniformObject, number>;
+  uniformsMapping: Record<keyof UniformsObject, number>;
 
   // GPU Specific
   uniformBuffer!: GPUBuffer;
@@ -40,11 +40,12 @@ export class Uniform<UniformObject extends UniformsDataStructure> {
     device: GPUDevice,
     renderPipeline: GPURenderPipeline,
     name: string,
-    uniforms: UniformObject,
+    uniforms: UniformsObject,
     bindGroupLayoutId: number
   ) {
     this.name = name;
     this.uniforms = uniforms;
+    this.uniformsMapping = {} as Record<keyof UniformsObject, number>;
 
     // Calculate buffer size and generate buffer offset mapping
     const uniformBufferSize = this.calculateUniformBufferSize();
@@ -57,11 +58,10 @@ export class Uniform<UniformObject extends UniformsDataStructure> {
     // Number of bytes required for a buffer
     const requirement = 16;
     let byteOffset = 0;
+    console.log("[UNIFORMS] Uniform", this.name, this.uniforms);
     for (const key in this.uniforms) {
+      console.log("[UNIFORMS] Calculating uniform", this.name, key);
       const uniform = this.uniforms[key];
-
-      // Add to uniform mapping
-      this.uniformsMapping[key] = byteOffset;
 
       // Check the data type
       const checkObj = isObject(uniform);
@@ -85,13 +85,27 @@ export class Uniform<UniformObject extends UniformsDataStructure> {
 
       // Did we need padding between the last prop?
       byteOffset += padding;
+
+      // Add to uniform mapping
+      this.uniformsMapping[key] = byteOffset / 4;
+
       // Add current property size
       byteOffset += size;
+      console.log("[UNIFORMS] Uniform size", this.name, byteOffset, {
+        size,
+        padding,
+      });
     }
 
     const padding = (requirement - (byteOffset % requirement)) % requirement;
 
     const finalBufferSize = byteOffset + padding;
+    console.log(
+      "[UNIFORMS] finalBufferSize",
+      this.name,
+      finalBufferSize,
+      finalBufferSize / 4
+    );
 
     return finalBufferSize;
   }
@@ -135,6 +149,12 @@ export class Uniform<UniformObject extends UniformsDataStructure> {
   setUniforms(device: GPUDevice) {
     for (const key in this.uniforms) {
       const uniform = this.uniforms[key];
+      console.log(
+        "[UNIFORMS] Setting uniform - loop",
+        this.name,
+        key,
+        this.uniformsMapping[key]
+      );
 
       // Check the data type
       const checkObj = isObject(uniform);
@@ -163,6 +183,11 @@ export class Uniform<UniformObject extends UniformsDataStructure> {
         ];
       }
 
+      console.log(
+        "[UNIFORMS] .set()",
+        this.uniformValues,
+        this.uniformsMapping[key]
+      );
       this.uniformValues.set(data, this.uniformsMapping[key]);
     }
 

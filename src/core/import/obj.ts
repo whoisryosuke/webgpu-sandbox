@@ -5,6 +5,7 @@ import Geometry, {
 } from "../geometry";
 import { createTexture, loadImage } from "../texture";
 import { Vector2D, Vector3D } from "../vertex";
+import { Mesh } from "../mesh";
 
 export type RGBColor = {
   r: number;
@@ -449,14 +450,16 @@ export async function importObj(
       });
     });
 
-    // Create a "mesh" containing the vertex + index data
-    const mesh = new Geometry(device, {
+    // Create "geometry" containing the vertex + index data
+    const geometry = new Geometry(device, {
       name: obj.name,
       vertices: generateVertexBufferData(meshPositions, meshNormals, meshUvs),
       indices: generateIndexBufferData(meshIndices),
-      // The name/key of the material in the global cache
-      material: obj.material,
     });
+
+    // Create a mesh that combines geometry and material
+    const mesh = new Mesh(device, renderPipeline, geometry, obj.material);
+
     return mesh;
   });
 

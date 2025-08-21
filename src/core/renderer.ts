@@ -7,6 +7,7 @@ import { importObj, loadObj } from "./import/obj";
 import { createTexture, createTextureBindGroup, loadImage } from "./texture";
 import { generateCube } from "../primitives/cube";
 import Geometry from "./geometry";
+import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
@@ -166,7 +167,7 @@ export default class WebGPURenderer {
     // Setup vertex buffer
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
-    const cubeMesh = generateCube(this.device, 0.1);
+    const cubeMesh = generateCube(this.device, renderPipeline, 0.1);
     const { meshes: planeMeshes, materials: planeMats } = await importObj(
       "/models/plane-with-texture/plane-with-texture.obj",
       //   "/models/classic-piano/classic-piano.obj",
@@ -351,13 +352,23 @@ export default class WebGPURenderer {
         const material = materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
         material.updateUniforms(this.device);
-        passEncoder.setBindGroup(1, material.uniformBindGroup);
+        passEncoder.setBindGroup(
+          UNIFORM_BIND_GROUP_LAYOUT_IDS["locals"],
+          mesh.uniforms.uniformBindGroup
+        );
+        passEncoder.setBindGroup(
+          UNIFORM_BIND_GROUP_LAYOUT_IDS["material"],
+          material.uniformBindGroup
+        );
         if (material && material.textureBindGroup) {
-          passEncoder.setBindGroup(2, material.textureBindGroup);
+          passEncoder.setBindGroup(
+            UNIFORM_BIND_GROUP_LAYOUT_IDS["texture"],
+            material.textureBindGroup
+          );
         }
-        passEncoder.setVertexBuffer(0, mesh.vertexBuffer);
-        passEncoder.setIndexBuffer(mesh.indexBuffer, "uint16");
-        passEncoder.drawIndexed(mesh.indices.length, instanceCount);
+        passEncoder.setVertexBuffer(0, mesh.geometry.vertexBuffer);
+        passEncoder.setIndexBuffer(mesh.geometry.indexBuffer, "uint16");
+        passEncoder.drawIndexed(mesh.geometry.indices.length, instanceCount);
       });
 
       passEncoder.end();
