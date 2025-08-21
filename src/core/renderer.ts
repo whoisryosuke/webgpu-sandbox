@@ -180,6 +180,7 @@ export default class WebGPURenderer {
       // "/models/torus-knot-tri-untextured.obj",
       // "/models/cube-tri-untextured.obj",
       "/models/suzanne-tri-untextured.obj",
+      // "/models/classic-piano/classic-piano.obj",
       this.device,
       renderPipeline,
       sampler
