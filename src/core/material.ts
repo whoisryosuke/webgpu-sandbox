@@ -16,8 +16,6 @@ export interface MaterialUniform extends UniformsDataStructure {
    * RGBA color. Alpha represents opacity of object.
    */
   color: RGBAColor;
-  scale: Vector3D;
-  offset: Vector3D;
   /**
    * 0 = No, 1 = Yes
    */
@@ -30,16 +28,6 @@ export const createMaterialUniform = (): MaterialUniform => ({
     g: 0,
     b: 1,
     a: 1,
-  },
-  scale: {
-    x: 1,
-    y: 1,
-    z: 1,
-  },
-  offset: {
-    x: 0,
-    y: 0,
-    z: 0,
   },
   flags: {
     texture: false,

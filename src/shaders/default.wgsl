@@ -18,8 +18,6 @@ struct LocalUniforms {
 
 struct MaterialUniforms {
   color: vec4f,
-  scale: vec3f,
-  offset: vec3f,
   flags: vec4f,
 };
 struct CameraUniforms {
@@ -47,7 +45,7 @@ fn vertex_main(
 {
   var output : VertexOut;
 
-  let scaled_position = position * locals.scale + locals.position + material.offset;
+  let scaled_position = position * locals.scale + locals.position;
   let local_position = vec4<f32>(scaled_position, 1.0);
   let world_position = camera.model_matrix * local_position;
 
