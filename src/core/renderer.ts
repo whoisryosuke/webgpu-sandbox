@@ -8,6 +8,7 @@ import { createTexture, createTextureBindGroup, loadImage } from "./texture";
 import { generateCube } from "../primitives/cube";
 import Geometry from "./geometry";
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
+import { Uniforms, UniformsDataStructure } from "./uniforms";
 
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
@@ -229,40 +230,30 @@ export default class WebGPURenderer {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
+    interface GlobalUniforms extends UniformsDataStructure {
+      time: number;
+    }
+
+    const globalUniformData: GlobalUniforms = {
+      time: 0,
+    };
+
     // Global Uniforms
-    const uniformBufferSize =
-      1 * 4 + // time is 1 32bit floats (4bytes each)
-      3 * 4; // we need some padding to meet 48 requirement;
-    const globalUniformBuffer = this.device.createBuffer({
-      label: "Global Uniform buffer",
-      size: uniformBufferSize,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    console.log("uniformBufferSize", uniformBufferSize);
-
-    // Create an buffer-friendly array (aka `TypedArray`) and use the buffer size
-    const uniformValues = new Float32Array(uniformBufferSize / 4);
-    uniformValues.set([0], 0);
-
-    // Create a bind group to hold the uniforms
-    const globalUniformBindGroup = this.device.createBindGroup({
-      label: "Global Uniforms",
-      layout: renderPipeline.getBindGroupLayout(0),
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: globalUniformBuffer,
-          },
-        },
+    const globalUniforms = new Uniforms(
+      this.device,
+      renderPipeline,
+      "Global",
+      globalUniformData,
+      UNIFORM_BIND_GROUP_LAYOUT_IDS["globals"],
+      [
         {
           binding: 1,
           resource: {
             buffer: this.camera.buffer,
           },
         },
-      ],
-    });
+      ]
+    );
 
     // Create depth and MSAA texture
     this.createCanvasTextures();
@@ -302,7 +293,8 @@ export default class WebGPURenderer {
 
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
-      uniformValues.set([timestamp], 0);
+      globalUniforms.uniforms.time = timestamp;
+      globalUniforms.setUniforms(this.device);
 
       // Calculate delta time in seconds
       const deltaTime = (timestamp - prevTime) / 1000;
@@ -351,7 +343,7 @@ export default class WebGPURenderer {
 
       // Render
       passEncoder.setPipeline(renderPipeline);
-      passEncoder.setBindGroup(0, globalUniformBindGroup);
+      passEncoder.setBindGroup(0, globalUniforms.uniformBindGroup);
 
       meshes.forEach((mesh) => {
         // console.log("[RENDERING] mesh:", mesh.name);
