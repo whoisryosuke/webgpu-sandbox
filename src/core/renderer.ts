@@ -190,6 +190,12 @@ export default class WebGPURenderer {
     const meshes = [...planeMeshes, ...monkeyMeshes, cubeMesh];
     const materials = { ...planeMats, ...monkeyMats };
 
+    // Test updating uniforms
+    cubeMesh.uniforms.uniforms.scale.x = 4;
+    cubeMesh.uniforms.uniforms.scale.y = 4;
+    cubeMesh.uniforms.uniforms.scale.z = 4;
+    cubeMesh.uniforms.setUniforms(this.device);
+
     console.log("[RENDERER] loaded OBJ", meshes, materials);
 
     // Create the camera
