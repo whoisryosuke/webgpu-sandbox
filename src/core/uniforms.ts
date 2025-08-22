@@ -58,9 +58,9 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
     // Number of bytes required for a buffer
     const requirement = 16;
     let byteOffset = 0;
-    console.log("[UNIFORMS] Uniform", this.name, this.uniforms);
+    // console.log("[UNIFORMS] Uniform", this.name, this.uniforms);
     for (const key in this.uniforms) {
-      console.log("[UNIFORMS] Calculating uniform", this.name, key);
+      // console.log("[UNIFORMS] Calculating uniform", this.name, key);
       const uniform = this.uniforms[key];
 
       // Check the data type
@@ -91,21 +91,21 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
 
       // Add current property size
       byteOffset += size;
-      console.log("[UNIFORMS] Uniform size", this.name, byteOffset, {
-        size,
-        padding,
-      });
+      // console.log("[UNIFORMS] Uniform size", this.name, byteOffset, {
+      //   size,
+      //   padding,
+      // });
     }
 
     const padding = (requirement - (byteOffset % requirement)) % requirement;
 
     const finalBufferSize = byteOffset + padding;
-    console.log(
-      "[UNIFORMS] finalBufferSize",
-      this.name,
-      finalBufferSize,
-      finalBufferSize / 4
-    );
+    // console.log(
+    //   "[UNIFORMS] finalBufferSize",
+    //   this.name,
+    //   finalBufferSize,
+    //   finalBufferSize / 4
+    // );
 
     return finalBufferSize;
   }
@@ -149,12 +149,12 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
   setUniforms(device: GPUDevice) {
     for (const key in this.uniforms) {
       const uniform = this.uniforms[key];
-      console.log(
-        "[UNIFORMS] Setting uniform - loop",
-        this.name,
-        key,
-        this.uniformsMapping[key]
-      );
+      // console.log(
+      //   "[UNIFORMS] Setting uniform - loop",
+      //   this.name,
+      //   key,
+      //   this.uniformsMapping[key]
+      // );
 
       // Check the data type
       const checkObj = isObject(uniform);
@@ -183,11 +183,11 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
         ];
       }
 
-      console.log(
-        "[UNIFORMS] .set()",
-        this.uniformValues,
-        this.uniformsMapping[key]
-      );
+      // console.log(
+      //   "[UNIFORMS] .set()",
+      //   this.uniformValues,
+      //   this.uniformsMapping[key]
+      // );
       this.uniformValues.set(data, this.uniformsMapping[key]);
     }
 
