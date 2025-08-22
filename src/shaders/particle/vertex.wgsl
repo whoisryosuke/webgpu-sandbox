@@ -31,13 +31,9 @@ struct VertexOutput {
 fn main(input: VertexInput, @builtin(instance_index) instanceIndex: u32) -> VertexOutput {
   let particle = particles[instanceIndex];
   
-  // Billboard the quad to face the camera
   let instance_position = vec4<f32>(particle.pos, 1.0) + vec4<f32>(input.position, 1.0);
   let world_position = camera.model_matrix * instance_position;
 
-
-  // let world_position = camera.model_matrix * vec4<f32>(position, 1.0);
-  
   let view_position = camera.view_matrix * world_position;
   
   var output: VertexOutput;
