@@ -23,12 +23,19 @@ export interface MaterialUniform extends UniformsDataStructure {
 }
 
 export const createMaterialUniform = (): MaterialUniform => ({
+  // General properties
   color: {
     r: 0,
     g: 0,
     b: 1,
     a: 1,
   },
+  // PBR properties
+  /**
+   * Shininess of object. 0-1000 range, 1000 less shiny.
+   */
+  specular: 500,
+  // Flags to enable/disable features
   flags: {
     texture: false,
     debugUv: false,

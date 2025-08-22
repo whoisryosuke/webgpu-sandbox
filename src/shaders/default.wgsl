@@ -21,6 +21,7 @@ struct LocalUniforms {
 
 struct MaterialUniforms {
   color: vec4f,
+  specular: f32,
   flags: vec4f,
 };
 struct CameraUniforms {
@@ -65,8 +66,9 @@ fn vertex_main(
   output.world_position = world_position.xyz;
   
   // Lighting
+  let light_position_perspective = camera.model_matrix * vec4f(globals.light_position, 1.0);
   var light_animation = vec3f(animation_circle_top, animation_circle_side, animation_circle_side);
-  var light_position = globals.light_position + light_animation;
+  var light_position = light_position_perspective.xyz + light_animation;
   // Figure out where light is facing relative to the object
   output.light_direction = normalize(light_position - world_position.xyz);
 
@@ -98,7 +100,15 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
   // Calculate specularity
   let surface_to_view_direction = normalize(fragData.surface_to_view);
   let half_vector = normalize(fragData.light_direction + surface_to_view_direction);
-  let specular = dot(fragData.normal, half_vector);
+  var specular_multiplier = select(0.0, material.specular / 1000.0, material.specular > 0.0);
+  // We get the vector direction from the normals and our "half" angle
+  var specular = dot(fragData.normal, half_vector);
+  // Then we scale it by the Material's specular property (and clamp where necessary)
+  specular = select(0.0, pow(specular, specular_multiplier), specular > 0.0);
+  // Debug: Animated
+  // specular = select(0.0, pow(specular, sin(globals.time / 420)), specular > 0.0);
+  // Debug: See effect
+  // specular = pow(specular, specular_multiplier);
 
   if(material.flags.x > 0.5) {
     return textureColor * light_amount + specular;

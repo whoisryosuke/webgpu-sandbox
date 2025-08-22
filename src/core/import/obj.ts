@@ -38,13 +38,16 @@ export interface OBJTexture {
  */
 export interface OBJMaterial {
   name: string;
-  shininess: number;
   ambient: RGBColor;
   /**
    * The color you see
    */
   diffuse: RGBColor;
-  specular: RGBColor;
+  /**
+   * Specularity aka how "shiny" object is
+   */
+  specularColor: RGBColor;
+  specularAmount: number;
   /**
    * Outer glow
    */
@@ -115,10 +118,10 @@ export async function loadMaterialLibrary(
   const lines = materialFile.split("\n");
   let material: OBJMaterial = {
     name: "Default",
-    shininess: 0,
     ambient: generateDefaultColor(),
     diffuse: generateDefaultColor(),
-    specular: generateDefaultColor(),
+    specularColor: generateDefaultColor(),
+    specularAmount: 500,
     emissive: generateDefaultColor(),
     opticalDensity: 0,
     opacity: 0,
@@ -148,13 +151,18 @@ export async function loadMaterialLibrary(
         material.diffuse = parseRGBParts(parts);
         break;
       case "Ks": // Specular Color
-        material.specular = parseRGBParts(parts);
+        material.specularColor = parseRGBParts(parts);
         break;
       case "Ke": // Emissive Color
         material.emissive = parseRGBParts(parts);
         break;
-      case "Ns": // Specular shininess
-        material.shininess = parseFloat(parts[1]);
+      case "Ns": // Specular "shininess"
+        material.specularAmount = parseFloat(parts[1]);
+        console.log(
+          "specularity",
+          material.specularAmount,
+          material.specularAmount / 1000
+        );
         break;
       case "d": // Specular shininess
         material.opacity = parseFloat(parts[1]);
@@ -357,19 +365,7 @@ export async function importObj(
             b: objMaterial.diffuse.b,
             a: objMaterial.opacity,
           },
-          scale: {
-            x: 1,
-            y: 1,
-            z: 1,
-          },
-          offset: {
-            // x: Math.random(),
-            // y: Math.random(),
-            // z: Math.random(),
-            x: 0,
-            y: 0,
-            z: 0,
-          },
+          specular: objMaterial.specularAmount,
           flags: {
             texture: objMaterial.textures.diffuse ? true : false,
             debugUv: false,
