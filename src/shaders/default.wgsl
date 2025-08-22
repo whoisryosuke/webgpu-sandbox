@@ -3,7 +3,8 @@ struct VertexOut {
   @location(0) world_position: vec3<f32>,
   @location(1) color : vec4f,
   @location(2) normal : vec3f,
-  @location(3) uv : vec2f
+  @location(3) uv : vec2f,
+  @location(4) light_amount : f32
 }
 
 struct GlobalUniforms {
@@ -51,13 +52,23 @@ fn vertex_main(
 
   // Use globals
   let simple_math = globals.time;
+  let animation_circle_top = sin(globals.time / 420);
+  let animation_circle_side = cos(globals.time / 420);
   
   let view_position = camera.view_matrix * world_position;
   output.position = camera.projection_matrix * view_position;
   
   output.world_position = world_position.xyz;
   
-  output.color = vec4f(normal, 1.0);
+  // output.color = vec4f(normal, 1.0);
+  // Use normal for simple lighting-based coloring
+  var lightDir = normalize(vec3f(animation_circle_top, animation_circle_side, animation_circle_side) - world_position.xyz);
+  var light_amount = max(dot(normal, lightDir), 0.3); // Minimum ambient
+  output.light_amount = light_amount;
+
+  // Generate some default colors based off the normal map and lights
+  // @TODO: Move it to frag
+  output.color = vec4f(vec3f(abs(uv), 1.0) * light_amount, 1.0);
   
   output.normal = normalize((camera.model_matrix * vec4<f32>(normal, 0.0)).xyz);
   output.uv = uv;
@@ -74,8 +85,8 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
   // return vec4f(0.0,0.0,material.texture, 1.0);
 
   if(material.flags.x > 0.5) {
-    return textureColor;
+    return textureColor * fragData.light_amount;
   }
-  // return fragData.color;
-  return vec4f(fragData.uv, 1.0, 1.0);
+  return fragData.color;
+  // return vec4f(fragData.uv, 1.0, 1.0);
 }
