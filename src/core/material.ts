@@ -1,14 +1,8 @@
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { RGBAColor, rgbaToArray } from "./import/obj";
 import { createTexture, createTextureBindGroup } from "./texture";
+import { Uniforms, UniformsDataStructure } from "./uniforms";
 import { Vector2D, Vector3D, Vector4D } from "./vertex";
-
-const BUFFER_OFFSET_MAP = {
-  color: 0,
-  scale: 4,
-  offset: 8,
-  flags: 12,
-};
 
 export type MaterialFlags = {
   texture: boolean;
@@ -17,7 +11,7 @@ export type MaterialFlags = {
   debugColor: boolean;
 };
 
-export type MaterialUniform = {
+export interface MaterialUniform extends UniformsDataStructure {
   color: RGBAColor;
   scale: Vector3D;
   offset: Vector3D;
@@ -25,9 +19,9 @@ export type MaterialUniform = {
    * 0 = No, 1 = Yes
    */
   flags: MaterialFlags;
-};
+}
 
-const DEFAULT_UNIFORMS: MaterialUniform = {
+export const createMaterialUniform = (): MaterialUniform => ({
   color: {
     r: 0,
     g: 0,
@@ -50,7 +44,7 @@ const DEFAULT_UNIFORMS: MaterialUniform = {
     debugNormals: false,
     debugColor: false,
   },
-};
+});
 
 export type MaterialTextureMap = Partial<{
   diffuse: GPUTexture;
@@ -62,12 +56,7 @@ export default class Material {
   name: string;
 
   // GPU Specific
-  uniformBuffer!: GPUBuffer;
-  uniformBindGroup!: GPUBindGroup;
-  /**
-   * The uniform data we submit to buffer. This is where you update uniform properties.
-   */
-  uniformValues!: Float32Array;
+  uniforms: Uniforms<MaterialUniform>;
   /**
    * Mapping textures to material properties
    */
@@ -80,94 +69,12 @@ export default class Material {
     name: string
   ) {
     this.name = name;
-    this.createUniformBuffer(device);
-    this.setUniforms(device, DEFAULT_UNIFORMS);
-    this.createUniformsBindGroup(device, renderPipeline);
-  }
-  createUniformsBindGroup(
-    device: GPUDevice,
-    renderPipeline: GPURenderPipeline
-  ) {
-    // Create a bind group to hold the uniforms
-    // @TODO: Move to material + remove camera and move it to a global uniform bind group
-    this.uniformBindGroup = device.createBindGroup({
-      label: "Local Uniforms",
-      layout: renderPipeline.getBindGroupLayout(
-        UNIFORM_BIND_GROUP_LAYOUT_IDS["material"]
-      ),
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: this.uniformBuffer,
-          },
-        },
-      ],
-    });
-  }
-
-  createUniformBuffer(device: GPUDevice) {
-    // Create a uniform buffer
-    // The buffer size is equivalent to all the data we put into our shader struct
-    const uniformBufferSize =
-      4 * 4 + // color is 4 32bit floats (4bytes each)
-      3 * 4 + // scale is 3 32bit floats (4bytes each)
-      1 * 4 + // padding
-      3 * 4 + // offset is 3 32bit floats (4bytes each)
-      1 * 4 + // padding
-      4 * 4; // flags is 4 32bit floats (4bytes each)
-    this.uniformBuffer = device.createBuffer({
-      label: "Local Uniform buffer",
-      size: uniformBufferSize,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    console.log("uniformBufferSize", uniformBufferSize);
-
-    // Create an buffer-friendly array (aka `TypedArray`) and use the buffer size
-    this.uniformValues = new Float32Array(uniformBufferSize / 4);
-  }
-
-  setUniforms(device: GPUDevice, uniform: MaterialUniform) {
-    this.setColor(uniform.color);
-    this.setScale(uniform.scale);
-    this.setOffset(uniform.offset);
-    this.setFlags(uniform.flags);
-    console.log("uniforms", this.uniformValues);
-
-    this.updateUniforms(device);
-  }
-
-  updateUniforms(device: GPUDevice) {
-    device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues.buffer);
-  }
-
-  setColor(color: RGBAColor) {
-    this.uniformValues.set(rgbaToArray(color), BUFFER_OFFSET_MAP["color"]);
-  }
-
-  setScale(scale: Vector3D) {
-    this.uniformValues.set(
-      [scale.x, scale.y, scale.z],
-      BUFFER_OFFSET_MAP["scale"]
-    );
-  }
-
-  setOffset(offset: Vector3D) {
-    this.uniformValues.set(
-      [offset.x, offset.y, offset.z],
-      BUFFER_OFFSET_MAP["offset"]
-    );
-  }
-
-  setFlags(flags: MaterialFlags) {
-    this.uniformValues.set(
-      [
-        Number(flags.texture),
-        Number(flags.debugUv),
-        Number(flags.debugNormals),
-        Number(flags.debugColor),
-      ],
-      BUFFER_OFFSET_MAP["flags"]
+    this.uniforms = new Uniforms(
+      device,
+      renderPipeline,
+      "Material",
+      createMaterialUniform(),
+      UNIFORM_BIND_GROUP_LAYOUT_IDS["material"]
     );
   }
 

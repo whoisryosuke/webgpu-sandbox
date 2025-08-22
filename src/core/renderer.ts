@@ -351,14 +351,14 @@ export default class WebGPURenderer {
         // console.log("[RENDERING] mesh:", mesh.name);
         const material = materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
-        material.updateUniforms(this.device);
+        material.uniforms.updateUniforms(this.device);
         passEncoder.setBindGroup(
           UNIFORM_BIND_GROUP_LAYOUT_IDS["locals"],
           mesh.uniforms.uniformBindGroup
         );
         passEncoder.setBindGroup(
           UNIFORM_BIND_GROUP_LAYOUT_IDS["material"],
-          material.uniformBindGroup
+          material.uniforms.uniformBindGroup
         );
         if (material && material.textureBindGroup) {
           passEncoder.setBindGroup(

@@ -379,7 +379,8 @@ export async function importObj(
         };
 
         // Update material with new uniform data
-        material.setUniforms(device, uniforms);
+        material.uniforms.uniforms = { ...uniforms };
+        material.uniforms.setUniforms(device);
 
         // Do we have textures? Create them using material
         if (objMaterial.textures.diffuse) {
