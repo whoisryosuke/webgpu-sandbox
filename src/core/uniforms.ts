@@ -75,6 +75,9 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
         size = objKeys.length * 4;
       } else if (checkArray) {
         size = (uniform as Array<any>).length * 4;
+      } else {
+        // Assume if it's a single value, it gets converted to number anyway
+        size = 4;
       }
 
       // Check if property meets WebGPU requirement
