@@ -12,6 +12,9 @@ export type MaterialFlags = {
 };
 
 export interface MaterialUniform extends UniformsDataStructure {
+  /**
+   * RGBA color. Alpha represents opacity of object.
+   */
   color: RGBAColor;
   scale: Vector3D;
   offset: Vector3D;
@@ -52,6 +55,11 @@ export type MaterialTextureMap = Partial<{
 
 export type MaterialTextureTypes = keyof MaterialTextureMap;
 
+/**
+ * The "styling" behind a Mesh.
+ * Provides properties like color or opacity,
+ * or helpers for managing underlying textures
+ */
 export default class Material {
   name: string;
 
