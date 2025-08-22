@@ -41,7 +41,8 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
     renderPipeline: GPURenderPipeline,
     name: string,
     uniforms: UniformsObject,
-    bindGroupLayoutId: number
+    bindGroupLayoutId: number,
+    additionalBindings?: GPUBindGroupEntry[]
   ) {
     this.name = name;
     this.uniforms = uniforms;
@@ -50,7 +51,12 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
     // Calculate buffer size and generate buffer offset mapping
     const uniformBufferSize = this.calculateUniformBufferSize();
     this.createUniformBuffer(device, uniformBufferSize);
-    this.createUniformsBindGroup(device, renderPipeline, bindGroupLayoutId);
+    this.createUniformsBindGroup(
+      device,
+      renderPipeline,
+      bindGroupLayoutId,
+      additionalBindings
+    );
     this.setUniforms(device);
   }
 
@@ -116,7 +122,8 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
   createUniformsBindGroup(
     device: GPUDevice,
     renderPipeline: GPURenderPipeline,
-    bindGroupLayoutId: number
+    bindGroupLayoutId: number,
+    additionalBindings: GPUBindGroupEntry[] = [] as GPUBindGroupEntry[]
   ) {
     // Create a bind group to hold the uniforms
     this.uniformBindGroup = device.createBindGroup({
@@ -129,6 +136,7 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
             buffer: this.uniformBuffer,
           },
         },
+        ...additionalBindings,
       ],
     });
   }
