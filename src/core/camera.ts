@@ -229,12 +229,13 @@ export default class Camera {
   updateUniformBuffer() {
     if (!this.device) return;
     // Create a buffer to hold all matrix data
-    const uniformData = new Float32Array(48); // 3 matrices * 16 floats each
+    const uniformData = new Float32Array(52); // 3 matrices * 16 floats each + 3 vec + 1 padding
 
     // Copy matrices into the buffer
     uniformData.set(this.modelMatrix, 0); // offset 0
     uniformData.set(this.viewMatrix, 16); // offset 16
     uniformData.set(this.projectionMatrix, 32); // offset 32
+    uniformData.set([this.target.x, this.target.y, this.target.z], 48); // offset 48
 
     // Write to GPU buffer
     this.device.queue.writeBuffer(this.buffer, 0, uniformData.buffer);

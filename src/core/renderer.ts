@@ -246,8 +246,8 @@ export default class WebGPURenderer {
     const globalUniformData: GlobalUniforms = {
       time: 0,
       lightPosition: {
-        x: -2,
-        y: -2,
+        x: 3,
+        y: 3,
         z: 3,
       },
     };

@@ -4,7 +4,8 @@ struct VertexOut {
   @location(1) color : vec4f,
   @location(2) normal : vec3f,
   @location(3) uv : vec2f,
-  @location(4) light_amount : f32
+  @location(4) light_direction : vec3f,
+  @location(5) surface_to_view : vec3f,
 }
 
 struct GlobalUniforms {
@@ -26,6 +27,8 @@ struct CameraUniforms {
   model_matrix: mat4x4<f32>,
   view_matrix: mat4x4<f32>,
   projection_matrix: mat4x4<f32>,
+  // The camera "eye" aka it's position in 3D
+  view_world_position: vec3f,
 }
 
 @group(0) @binding(0) var<uniform> globals: GlobalUniforms;
@@ -61,18 +64,17 @@ fn vertex_main(
   
   output.world_position = world_position.xyz;
   
-  // output.color = vec4f(normal, 1.0);
-  // Use normal for simple lighting-based coloring
+  // Lighting
   var light_animation = vec3f(animation_circle_top, animation_circle_side, animation_circle_side);
-  // var lightDir = normalize(vec3f(animation_circle_top, animation_circle_side, animation_circle_side) - world_position.xyz);
   var light_position = globals.light_position + light_animation;
-  var light_direction = normalize(light_position - world_position.xyz);
-  var light_amount = max(dot(normal, light_direction), 0.3); // Minimum ambient
-  output.light_amount = light_amount;
+  // Figure out where light is facing relative to the object
+  output.light_direction = normalize(light_position - world_position.xyz);
 
-  // Generate some default colors based off the normal map and lights
-  // @TODO: Move it to frag
-  output.color = vec4f(vec3f(abs(uv), 1.0) * light_amount, 1.0);
+  // Pass down direction of camera relative to object (used for lighting math)
+  output.surface_to_view = camera.view_world_position - world_position.xyz;
+
+  // Pass material color down to fragmennt
+  output.color = material.color;
   
   output.normal = normalize((camera.model_matrix * vec4<f32>(normal, 0.0)).xyz);
   output.uv = uv;
@@ -88,9 +90,21 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
 
   // return vec4f(0.0,0.0,material.texture, 1.0);
 
+  // Lighting
+  // Use normal for simple lighting-based coloring
+  var light_amount = max(dot(fragData.normal, fragData.light_direction), 0.3); // Minimum ambient
+
+
+  // Calculate specularity
+  let surface_to_view_direction = normalize(fragData.surface_to_view);
+  let half_vector = normalize(fragData.light_direction + surface_to_view_direction);
+  let specular = dot(fragData.normal, half_vector);
+
   if(material.flags.x > 0.5) {
-    return textureColor * fragData.light_amount;
+    return textureColor * light_amount + specular;
   }
-  return fragData.color;
+  let uv_color_with_lighting = vec3f(abs(fragData.uv), 1.0) * light_amount + specular;
+  return vec4f(uv_color_with_lighting, 1.0);
+  // return fragData.color;
   // return vec4f(fragData.uv, 1.0, 1.0);
 }
