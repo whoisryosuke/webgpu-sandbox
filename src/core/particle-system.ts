@@ -4,7 +4,9 @@ import fragmentShaderCode from "../shaders/particle/fragment.wgsl?raw";
 import { generateCube } from "../primitives/cube";
 import Camera from "./camera";
 import { importObj, loadObj } from "./import/obj";
+import Geometry from "./geometry";
 
+const NAME = "Particle System";
 const MAX_PARTICLES = 1000;
 const PARTICLE_BYTE_OFFSET = 32; // 24 bytes per particle (vec3<f32> * 2)
 const BUFFER_SIZE = MAX_PARTICLES * PARTICLE_BYTE_OFFSET;
@@ -12,14 +14,15 @@ const ARRAY_SIZE = MAX_PARTICLES * 8; // Divide by 4 because each element is a f
 
 export default class ParticleSystem {
   device: GPUDevice;
+
+  geometry: Geometry;
+
   particles: Float32Array = new Float32Array(ARRAY_SIZE).fill(0);
   currentIndex: number = 0;
 
   particleBuffer: GPUBuffer;
   uniformBuffer: GPUBuffer;
   audioBuffer: GPUBuffer;
-  vertexBuffer: GPUBuffer;
-  indexBuffer: GPUBuffer;
   // particleCountBuffer: GPUBuffer;
   computePipeline: GPUComputePipeline;
   renderPipeline: GPURenderPipeline;
@@ -28,13 +31,12 @@ export default class ParticleSystem {
 
   indexCount: number = 0;
 
-  constructor(
-    device: GPUDevice,
-    camera: Camera,
-    vertices: Float32Array,
-    indices: Uint16Array
-  ) {
+  constructor(device: GPUDevice, camera: Camera, geometry: Geometry) {
     this.device = device;
+    this.geometry = geometry;
+    console.log(`[${NAME}]: Created`, this.geometry);
+
+    // Generate buffers
     this.particleBuffer = device.createBuffer({
       label: "Particles buffer",
       size: this.particles.byteLength, // Size for translation matrix per instance,
@@ -51,34 +53,20 @@ export default class ParticleSystem {
 
     // Uniform buffer for time and other constants
     this.uniformBuffer = this.device.createBuffer({
+      label: "Particle Uniforms",
       size: 64, // 4 floats * 4 bytes each, padded to 64 bytes
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
     // Audio buffer for waveform data
     this.audioBuffer = this.device.createBuffer({
+      label: "Audio Storage",
       size: 1024 * 4, // 1024 samples x 4 bytes for f32 - Float32Array
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    // const { vertices, indices } = generateCube(0.1);
-    this.indexCount = indices.length;
-
-    this.vertexBuffer = this.device.createBuffer({
-      label: "Vertex buffer",
-      size: vertices.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(this.vertexBuffer, 0, vertices.buffer);
-
-    this.indexBuffer = this.device.createBuffer({
-      label: "Index buffer",
-      size: indices.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(this.indexBuffer, 0, indices.buffer);
-
     const computeBindGroupLayout = device.createBindGroupLayout({
+      label: NAME,
       entries: [
         {
           binding: 0,
@@ -98,6 +86,7 @@ export default class ParticleSystem {
       ],
     });
     const renderBindGroupLayout = device.createBindGroupLayout({
+      label: NAME,
       entries: [
         {
           binding: 0,
@@ -113,6 +102,7 @@ export default class ParticleSystem {
     });
 
     this.computeBindGroup = device.createBindGroup({
+      label: NAME,
       layout: computeBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: this.particleBuffer } },
@@ -122,6 +112,7 @@ export default class ParticleSystem {
     });
 
     this.renderBindGroup = device.createBindGroup({
+      label: NAME,
       layout: renderBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: this.particleBuffer } },
@@ -130,6 +121,7 @@ export default class ParticleSystem {
     });
 
     this.computePipeline = device.createComputePipeline({
+      label: NAME,
       layout: device.createPipelineLayout({
         bindGroupLayouts: [computeBindGroupLayout],
       }),
@@ -168,6 +160,7 @@ export default class ParticleSystem {
     ];
 
     this.renderPipeline = device.createRenderPipeline({
+      label: NAME,
       layout: device.createPipelineLayout({
         bindGroupLayouts: [renderBindGroupLayout],
       }),
@@ -254,7 +247,9 @@ export default class ParticleSystem {
 
   compute(commandEncoder: GPUCommandEncoder) {
     // Compute pass
-    const computePass = commandEncoder.beginComputePass();
+    const computePass = commandEncoder.beginComputePass({
+      label: NAME,
+    });
     computePass.setPipeline(this.computePipeline);
     computePass.setBindGroup(0, this.computeBindGroup);
     computePass.dispatchWorkgroups(Math.ceil(MAX_PARTICLES / 64));
@@ -263,9 +258,9 @@ export default class ParticleSystem {
   render(renderPass: GPURenderPassEncoder) {
     renderPass.setPipeline(this.renderPipeline);
     renderPass.setBindGroup(0, this.renderBindGroup);
-    renderPass.setVertexBuffer(0, this.vertexBuffer);
-    renderPass.setIndexBuffer(this.indexBuffer, "uint16");
-    renderPass.drawIndexed(this.indexCount, MAX_PARTICLES);
+    renderPass.setVertexBuffer(0, this.geometry.vertexBuffer);
+    renderPass.setIndexBuffer(this.geometry.indexBuffer, "uint16");
+    renderPass.drawIndexed(this.geometry.indices.length, MAX_PARTICLES);
   }
 
   updateAudioBuffer(buffer: BufferSource | SharedArrayBuffer) {
