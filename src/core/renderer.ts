@@ -178,6 +178,10 @@ export default class WebGPURenderer {
       sampler
     );
 
+    planeMeshes[0].uniforms.uniforms.position.x = 2;
+    planeMeshes[0].uniforms.uniforms.position.y = 2;
+    planeMeshes[0].uniforms.setUniforms(this.device);
+
     const { meshes: monkeyMeshes, materials: monkeyMats } = await importObj(
       // "/models/torus-knot-tri-untextured.obj",
       // "/models/cube-tri-untextured.obj",
@@ -196,6 +200,9 @@ export default class WebGPURenderer {
     cubeMesh.uniforms.uniforms.scale.y = 4;
     cubeMesh.uniforms.uniforms.scale.z = 4;
     cubeMesh.uniforms.setUniforms(this.device);
+
+    monkeyMeshes[0].uniforms.uniforms.position.x = -2;
+    monkeyMeshes[0].uniforms.uniforms.position.y = -2;
 
     console.log("[RENDERER] loaded OBJ", meshes, materials);
 
@@ -259,12 +266,11 @@ export default class WebGPURenderer {
     this.createCanvasTextures();
 
     // Create particle system
-    // this.particleSystem = new ParticleSystem(
-    //   this.device,
-    //   this.camera,
-    //   vertices,
-    //   indices
-    // );
+    this.particleSystem = new ParticleSystem(
+      this.device,
+      this.camera,
+      cubeMesh.geometry
+    );
 
     this.audio = new AudioPlayer();
     await this.audio.load();
