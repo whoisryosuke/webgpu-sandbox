@@ -9,6 +9,7 @@ import { generateCube } from "../primitives/cube";
 import Geometry from "./geometry";
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { Uniforms, UniformsDataStructure } from "./uniforms";
+import { Vector3D } from "./vertex";
 
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
@@ -239,10 +240,16 @@ export default class WebGPURenderer {
 
     interface GlobalUniforms extends UniformsDataStructure {
       time: number;
+      lightPosition: Vector3D;
     }
 
     const globalUniformData: GlobalUniforms = {
       time: 0,
+      lightPosition: {
+        x: -2,
+        y: -2,
+        z: 3,
+      },
     };
 
     // Global Uniforms

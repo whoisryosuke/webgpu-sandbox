@@ -9,6 +9,7 @@ struct VertexOut {
 
 struct GlobalUniforms {
   time: f32,
+  light_position: vec3<f32>,
 }
 
 struct LocalUniforms {
@@ -62,8 +63,11 @@ fn vertex_main(
   
   // output.color = vec4f(normal, 1.0);
   // Use normal for simple lighting-based coloring
-  var lightDir = normalize(vec3f(animation_circle_top, animation_circle_side, animation_circle_side) - world_position.xyz);
-  var light_amount = max(dot(normal, lightDir), 0.3); // Minimum ambient
+  var light_animation = vec3f(animation_circle_top, animation_circle_side, animation_circle_side);
+  // var lightDir = normalize(vec3f(animation_circle_top, animation_circle_side, animation_circle_side) - world_position.xyz);
+  var light_position = globals.light_position + light_animation;
+  var light_direction = normalize(light_position - world_position.xyz);
+  var light_amount = max(dot(normal, light_direction), 0.3); // Minimum ambient
   output.light_amount = light_amount;
 
   // Generate some default colors based off the normal map and lights
