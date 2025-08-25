@@ -176,7 +176,7 @@ export default class WebGPURenderer {
 
     planeMeshes[0].uniforms.uniforms.position.x = 2;
     planeMeshes[0].uniforms.uniforms.position.y = 2;
-    planeMeshes[0].uniforms.setUniforms(this.device);
+    planeMeshes[0].uniforms.setUniforms();
 
     const { meshes: monkeyMeshes, materials: monkeyMats } = await importObj(
       // "/models/torus-knot-tri-untextured.obj",
@@ -195,7 +195,7 @@ export default class WebGPURenderer {
     cubeMesh.uniforms.uniforms.scale.x = 4;
     cubeMesh.uniforms.uniforms.scale.y = 4;
     cubeMesh.uniforms.uniforms.scale.z = 4;
-    cubeMesh.uniforms.setUniforms(this.device);
+    cubeMesh.uniforms.setUniforms();
 
     monkeyMeshes[0].uniforms.uniforms.position.x = -2;
     monkeyMeshes[0].uniforms.uniforms.position.y = -2;
@@ -299,7 +299,7 @@ export default class WebGPURenderer {
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
       this.globalUniforms.uniforms.time = timestamp;
-      this.globalUniforms.setUniforms(this.device);
+      this.globalUniforms.setUniforms();
 
       // Calculate delta time in seconds
       const deltaTime = (timestamp - this.prevTime) / 1000;
