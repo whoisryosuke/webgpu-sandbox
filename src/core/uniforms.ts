@@ -32,7 +32,8 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
   uniformBuffer!: GPUBuffer;
   uniformBindGroup!: GPUBindGroup;
   /**
-   * The uniform data we submit to buffer. This is where you update uniform properties.
+   * The uniform data we submit to buffer.
+   * You should use `uniforms` property to update values, then use `setUniforms()` to update this property.
    */
   uniformValues!: Float32Array;
 
