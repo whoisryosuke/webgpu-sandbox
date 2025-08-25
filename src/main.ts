@@ -45,10 +45,10 @@ const MUSIC_KEY_MAP: KeyboardMusicInputMap = {
 const renderCallback = (props: RenderProps) => {
   // props.meshes[1].uniforms.uniforms.scale.x += 0.01;
   // props.meshes[1].uniforms.uniforms.scale.y += 0.01;
-  props.meshes[1].uniforms.uniforms.position.x += 0.01;
+  // props.meshes[1].uniforms.uniforms.position.x += 0.01;
   // props.meshes[1].uniforms.uniforms.position.y += 0.01;
   // props.meshes[1].uniforms.uniforms.position.z += 0.01;
-  props.meshes[1].uniforms.setUniforms();
+  // props.meshes[1].uniforms.setUniforms();
 };
 
 async function main() {
