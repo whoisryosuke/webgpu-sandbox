@@ -37,6 +37,8 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
    */
   uniformValues!: Float32Array;
 
+  device: GPUDevice;
+
   constructor(
     device: GPUDevice,
     renderPipeline: GPURenderPipeline,
@@ -48,17 +50,17 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
     this.name = name;
     this.uniforms = uniforms;
     this.uniformsMapping = {} as Record<keyof UniformsObject, number>;
+    this.device = device;
 
     // Calculate buffer size and generate buffer offset mapping
     const uniformBufferSize = this.calculateUniformBufferSize();
-    this.createUniformBuffer(device, uniformBufferSize);
+    this.createUniformBuffer(uniformBufferSize);
     this.createUniformsBindGroup(
-      device,
       renderPipeline,
       bindGroupLayoutId,
       additionalBindings
     );
-    this.setUniforms(device);
+    this.setUniforms();
   }
 
   calculateUniformBufferSize() {
@@ -121,13 +123,12 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
   }
 
   createUniformsBindGroup(
-    device: GPUDevice,
     renderPipeline: GPURenderPipeline,
     bindGroupLayoutId: number,
     additionalBindings: GPUBindGroupEntry[] = [] as GPUBindGroupEntry[]
   ) {
     // Create a bind group to hold the uniforms
-    this.uniformBindGroup = device.createBindGroup({
+    this.uniformBindGroup = this.device.createBindGroup({
       label: `${this.name} Uniform`,
       layout: renderPipeline.getBindGroupLayout(bindGroupLayoutId),
       entries: [
@@ -142,9 +143,9 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
     });
   }
 
-  createUniformBuffer(device: GPUDevice, uniformBufferSize: number) {
+  createUniformBuffer(uniformBufferSize: number) {
     // Create a uniform buffer
-    this.uniformBuffer = device.createBuffer({
+    this.uniformBuffer = this.device.createBuffer({
       label: `${this.name} Uniform`,
       size: uniformBufferSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -158,7 +159,7 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
    * Loops through each uniform and stores it in buffer friendly array.
    * Uses the uniform mapping to align properties in buffer array.
    */
-  setUniforms(device: GPUDevice) {
+  setUniforms() {
     for (const key in this.uniforms) {
       const uniform = this.uniforms[key];
       // console.log(
@@ -203,14 +204,18 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
       this.uniformValues.set(data, this.uniformsMapping[key]);
     }
 
-    this.updateUniforms(device);
+    this.updateUniforms();
   }
 
   /**
    * Updates buffer with new uniform data from buffer array
    */
-  updateUniforms(device: GPUDevice) {
-    device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues.buffer);
+  updateUniforms() {
+    this.device.queue.writeBuffer(
+      this.uniformBuffer,
+      0,
+      this.uniformValues.buffer
+    );
   }
 
   convertUniformValuesToNum = (value: UniformPrimitiveDataTypes) => {
