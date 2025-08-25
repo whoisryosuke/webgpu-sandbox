@@ -31,3 +31,32 @@ export function createVertexBufferData(vertices: Vertex[]) {
 
   return new Float32Array(data);
 }
+
+// Setup "shape" of vertex (aka what data we're packing into each point of a mesh)
+// Should match the structure of `Vertex` above
+export const vertexBufferDescriptor: GPUVertexState["buffers"] = [
+  {
+    attributes: [
+      // Position
+      {
+        shaderLocation: 0,
+        offset: 0,
+        format: "float32x3", // 4 * 3
+      },
+      // Normal
+      {
+        shaderLocation: 1,
+        offset: 12,
+        format: "float32x3", // 4 * 3
+      },
+      // UV
+      {
+        shaderLocation: 2,
+        offset: 24,
+        format: "float32x2", // 4 * 2
+      },
+    ],
+    arrayStride: 32, // Add up all formats + padding to meet 16 multiple req.
+    stepMode: "vertex",
+  },
+];

@@ -9,7 +9,7 @@ import { generateCube } from "../primitives/cube";
 import Geometry from "./geometry";
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { Uniforms, UniformsDataStructure } from "./uniforms";
-import { Vector3D } from "./vertex";
+import { Vector3D, vertexBufferDescriptor } from "./vertex";
 
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
@@ -55,34 +55,6 @@ export default class WebGPURenderer {
     const shaderModule = this.device.createShaderModule({
       code: defaultShader,
     });
-
-    // Setup vertex buffer descriptors
-    const vertexBufferDescriptor: GPUVertexState["buffers"] = [
-      {
-        attributes: [
-          // Position
-          {
-            shaderLocation: 0,
-            offset: 0,
-            format: "float32x3",
-          },
-          // Normal
-          {
-            shaderLocation: 1,
-            offset: 12,
-            format: "float32x3",
-          },
-          // UV
-          {
-            shaderLocation: 2,
-            offset: 24,
-            format: "float32x2",
-          },
-        ],
-        arrayStride: 32,
-        stepMode: "vertex",
-      },
-    ];
 
     // Ideally we'd setup a bind group layout for our bind group
     // but since the render pipeline is set to `auto`, we don't need it
@@ -136,8 +108,9 @@ export default class WebGPURenderer {
         ],
       },
       primitive: {
-        // topology: "point-list",
-        topology: "triangle-list",
+        // topology: "point-list", // Debug: See all points
+        topology: "triangle-list", // "3D" mode
+        // topology: "line-list", // "Wireframe" mode
       },
       // Add depth testing
       depthStencil: {
@@ -215,28 +188,28 @@ export default class WebGPURenderer {
     // Update the uniform buffer with instance matrices (translation)
 
     const instanceCount = 500;
-    const floatsPerInstance = 16; // mat4 + color
-    const instanceUniformValue = new Float32Array(
-      instanceCount * floatsPerInstance
-    );
+    // const floatsPerInstance = 16; // mat4 + color
+    // const instanceUniformValue = new Float32Array(
+    //   instanceCount * floatsPerInstance
+    // );
 
-    for (let i = 0; i < instanceCount; i++) {
-      const offset = i * floatsPerInstance;
+    // for (let i = 0; i < instanceCount; i++) {
+    //   const offset = i * floatsPerInstance;
 
-      const model = mat4.translation([
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 2,
-      ]);
+    //   const model = mat4.translation([
+    //     (Math.random() - 0.5) * 10,
+    //     (Math.random() - 0.5) * 10,
+    //     (Math.random() - 0.5) * 2,
+    //   ]);
 
-      instanceUniformValue.set(model, offset);
-    }
+    //   instanceUniformValue.set(model, offset);
+    // }
 
-    const instanceUniformBuffer = this.device.createBuffer({
-      label: "Instances Uniform buffer",
-      size: instanceUniformValue.byteLength, // Size for translation matrix per instance,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
+    // const instanceUniformBuffer = this.device.createBuffer({
+    //   label: "Instances Uniform buffer",
+    //   size: instanceUniformValue.byteLength, // Size for translation matrix per instance,
+    //   usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    // });
 
     interface GlobalUniforms extends UniformsDataStructure {
       time: number;
@@ -388,7 +361,7 @@ export default class WebGPURenderer {
         passEncoder.setIndexBuffer(mesh.geometry.indexBuffer, "uint16");
 
         // Draw the mesh
-        passEncoder.drawIndexed(mesh.geometry.indices.length, instanceCount);
+        passEncoder.drawIndexed(mesh.geometry.indices.length, 1);
       });
 
       passEncoder.end();
