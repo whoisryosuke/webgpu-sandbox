@@ -5,6 +5,7 @@ import { generateCube } from "../primitives/cube";
 import Camera from "./camera";
 import { importObj, loadObj } from "./import/obj";
 import Geometry from "./geometry";
+import { vertexBufferDescriptor } from "./vertex";
 
 const NAME = "Particle System";
 const MAX_PARTICLES = 1000;
@@ -130,34 +131,6 @@ export default class ParticleSystem {
         entryPoint: "main",
       },
     });
-
-    // Setup vertex buffer descriptors
-    const vertexBufferDescriptor: GPUVertexState["buffers"] = [
-      {
-        attributes: [
-          // Position
-          {
-            shaderLocation: 0,
-            offset: 0,
-            format: "float32x3",
-          },
-          // Normal
-          {
-            shaderLocation: 1,
-            offset: 12,
-            format: "float32x3",
-          },
-          // UV
-          {
-            shaderLocation: 2,
-            offset: 24,
-            format: "float32x2",
-          },
-        ],
-        arrayStride: 32,
-        stepMode: "vertex",
-      },
-    ];
 
     this.renderPipeline = device.createRenderPipeline({
       label: NAME,
