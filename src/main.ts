@@ -1,5 +1,5 @@
 import "./style.css";
-import WebGPURenderer from "./core/renderer";
+import WebGPURenderer, { RenderProps } from "./core/renderer";
 import DebugUIInstance from "./core/debug-ui";
 import InputManager from "./core/input/input-manager";
 import { KeyboardInputMap, KeyboardMusicInputMap } from "./core/input/keyboard";
@@ -42,6 +42,15 @@ const MUSIC_KEY_MAP: KeyboardMusicInputMap = {
   7: "70",
 };
 
+const renderCallback = (props: RenderProps) => {
+  // props.meshes[1].uniforms.uniforms.scale.x += 0.01;
+  // props.meshes[1].uniforms.uniforms.scale.y += 0.01;
+  props.meshes[1].uniforms.uniforms.position.x += 0.01;
+  // props.meshes[1].uniforms.uniforms.position.y += 0.01;
+  // props.meshes[1].uniforms.uniforms.position.z += 0.01;
+  props.meshes[1].uniforms.setUniforms();
+};
+
 async function main() {
   const renderer = new WebGPURenderer();
   const input = new InputManager();
@@ -65,7 +74,7 @@ async function main() {
 
   await renderer.init();
 
-  renderer.render();
+  renderer.render(renderCallback);
 }
 
 window.addEventListener("load", main);

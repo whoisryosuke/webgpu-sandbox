@@ -18,6 +18,12 @@ interface GlobalUniforms extends UniformsDataStructure {
   lightPosition: Vector3D;
 }
 
+export type RenderProps = {
+  timestamp: number;
+  meshes: Mesh[];
+  materials: Record<string, Material>;
+};
+
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
   device!: GPUDevice;
@@ -273,7 +279,7 @@ export default class WebGPURenderer {
     this.prevTime = 0;
   }
 
-  render() {
+  render(callback: (props: RenderProps) => void) {
     const render = (timestamp: number) => {
       // Check if we have required element for rendering
       if (
@@ -298,6 +304,15 @@ export default class WebGPURenderer {
       // Calculate delta time in seconds
       const deltaTime = (timestamp - this.prevTime) / 1000;
       this.prevTime = timestamp;
+
+      // Render callback
+      // Let's user mutate scene before render
+      const renderProps: RenderProps = {
+        timestamp,
+        meshes: this.meshes,
+        materials: this.materials,
+      };
+      callback(renderProps);
 
       // console.log("time / frame", timeUniformData, frameCount, uniformValues);
 
@@ -351,7 +366,7 @@ export default class WebGPURenderer {
         // Get mesh material and update material buffers with new data
         const material = this.materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
-        material.uniforms.updateUniforms(this.device);
+        material.uniforms.updateUniforms();
 
         // Set bind groups (uniforms, texture, etc)
         passEncoder.setBindGroup(
