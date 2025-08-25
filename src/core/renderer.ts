@@ -358,11 +358,16 @@ export default class WebGPURenderer {
       passEncoder.setPipeline(renderPipeline);
       passEncoder.setBindGroup(0, globalUniforms.uniformBindGroup);
 
+      // Loop over each mesh and render it
       meshes.forEach((mesh) => {
         // console.log("[RENDERING] mesh:", mesh.name);
+
+        // Get mesh material and update material buffers with new data
         const material = materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
         material.uniforms.updateUniforms(this.device);
+
+        // Set bind groups (uniforms, texture, etc)
         passEncoder.setBindGroup(
           UNIFORM_BIND_GROUP_LAYOUT_IDS["locals"],
           mesh.uniforms.uniformBindGroup
@@ -377,8 +382,12 @@ export default class WebGPURenderer {
             material.textureBindGroup
           );
         }
+
+        // Set geometry buffers (vertex + index)
         passEncoder.setVertexBuffer(0, mesh.geometry.vertexBuffer);
         passEncoder.setIndexBuffer(mesh.geometry.indexBuffer, "uint16");
+
+        // Draw the mesh
         passEncoder.drawIndexed(mesh.geometry.indices.length, instanceCount);
       });
 
