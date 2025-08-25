@@ -64,6 +64,8 @@ async function main() {
   });
 
   await renderer.init();
+
+  renderer.render();
 }
 
 window.addEventListener("load", main);

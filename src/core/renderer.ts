@@ -10,19 +10,35 @@ import Geometry from "./geometry";
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { Uniforms, UniformsDataStructure } from "./uniforms";
 import { Vector3D, vertexBufferDescriptor } from "./vertex";
+import { Mesh } from "./mesh";
+import Material from "./material";
+
+interface GlobalUniforms extends UniformsDataStructure {
+  time: number;
+  lightPosition: Vector3D;
+}
 
 export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
   device!: GPUDevice;
+  context!: GPUCanvasContext;
+  renderPipeline!: GPURenderPipeline;
   camera!: Camera;
   depthTexture!: GPUTexture;
   multisampleTexture!: GPUTexture;
   audio!: AudioPlayer;
   particleSystem!: ParticleSystem;
 
-  // Mesh attributes
-  // @TODO: Extract to a mesh class
-  texture!: GPUTexture;
+  // Uniforms
+  globalUniforms!: Uniforms<GlobalUniforms>;
+
+  // Timing
+  frameCount: number = 0;
+  prevTime: number = 0;
+
+  // Scene
+  meshes: Mesh[] = [];
+  materials: Record<string, Material> = {};
 
   async init() {
     // Setup adapter and device
@@ -45,8 +61,8 @@ export default class WebGPURenderer {
     // Remove right click menu
     this.preventRightClick();
 
-    const context = this.getContext();
-    context.configure({
+    this.context = this.getContext();
+    this.context.configure({
       device: this.device,
       format: "bgra8unorm",
     });
@@ -131,7 +147,7 @@ export default class WebGPURenderer {
       //   bindGroupLayouts: [bindGroupLayout],
       // }),
     };
-    const renderPipeline = this.device.createRenderPipeline(pipelineDescriptor);
+    this.renderPipeline = this.device.createRenderPipeline(pipelineDescriptor);
 
     // Create a sampler with linear filtering for smooth interpolation.
     const sampler = this.device.createSampler({
@@ -142,13 +158,13 @@ export default class WebGPURenderer {
     // Setup vertex buffer
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
-    const cubeMesh = generateCube(this.device, renderPipeline, 0.1);
+    const cubeMesh = generateCube(this.device, this.renderPipeline, 0.1);
     const { meshes: planeMeshes, materials: planeMats } = await importObj(
       "/models/plane-with-texture/plane-with-texture.obj",
       //   "/models/classic-piano/classic-piano.obj",
       // "/models/suzanne-tri-untextured.obj",
       this.device,
-      renderPipeline,
+      this.renderPipeline,
       sampler
     );
 
@@ -162,12 +178,12 @@ export default class WebGPURenderer {
       "/models/suzanne-tri-untextured.obj",
       // "/models/classic-piano/classic-piano.obj",
       this.device,
-      renderPipeline,
+      this.renderPipeline,
       sampler
     );
 
-    const meshes = [...planeMeshes, ...monkeyMeshes, cubeMesh];
-    const materials = { ...planeMats, ...monkeyMats };
+    this.meshes = [...planeMeshes, ...monkeyMeshes, cubeMesh];
+    this.materials = { ...planeMats, ...monkeyMats };
 
     // Test updating uniforms
     cubeMesh.uniforms.uniforms.scale.x = 4;
@@ -178,7 +194,7 @@ export default class WebGPURenderer {
     monkeyMeshes[0].uniforms.uniforms.position.x = -2;
     monkeyMeshes[0].uniforms.uniforms.position.y = -2;
 
-    console.log("[RENDERER] loaded OBJ", meshes, materials);
+    console.log("[RENDERER] loaded OBJ", this.meshes, this.materials);
 
     // Create the camera
     this.camera = new Camera(this.device);
@@ -211,11 +227,6 @@ export default class WebGPURenderer {
     //   usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     // });
 
-    interface GlobalUniforms extends UniformsDataStructure {
-      time: number;
-      lightPosition: Vector3D;
-    }
-
     const globalUniformData: GlobalUniforms = {
       time: 0,
       lightPosition: {
@@ -226,9 +237,9 @@ export default class WebGPURenderer {
     };
 
     // Global Uniforms
-    const globalUniforms = new Uniforms(
+    this.globalUniforms = new Uniforms(
       this.device,
-      renderPipeline,
+      this.renderPipeline,
       "Global",
       globalUniformData,
       UNIFORM_BIND_GROUP_LAYOUT_IDS["globals"],
@@ -258,9 +269,11 @@ export default class WebGPURenderer {
     // Setup events
     this.setupResize();
 
-    let frameCount = 0;
-    let prevTime = 0;
+    this.frameCount = 0;
+    this.prevTime = 0;
+  }
 
+  render() {
     const render = (timestamp: number) => {
       // Check if we have required element for rendering
       if (
@@ -279,12 +292,12 @@ export default class WebGPURenderer {
 
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
       // aka example of a "dynamic" uniform
-      globalUniforms.uniforms.time = timestamp;
-      globalUniforms.setUniforms(this.device);
+      this.globalUniforms.uniforms.time = timestamp;
+      this.globalUniforms.setUniforms(this.device);
 
       // Calculate delta time in seconds
-      const deltaTime = (timestamp - prevTime) / 1000;
-      prevTime = timestamp;
+      const deltaTime = (timestamp - this.prevTime) / 1000;
+      this.prevTime = timestamp;
 
       // console.log("time / frame", timeUniformData, frameCount, uniformValues);
 
@@ -302,7 +315,7 @@ export default class WebGPURenderer {
             loadOp: "clear",
             storeOp: "store",
             view: this.multisampleTexture.createView(),
-            resolveTarget: context.getCurrentTexture().createView(),
+            resolveTarget: this.context.getCurrentTexture().createView(),
           } as GPURenderPassColorAttachment,
         ],
         depthStencilAttachment: {
@@ -328,15 +341,15 @@ export default class WebGPURenderer {
       // );
 
       // Render
-      passEncoder.setPipeline(renderPipeline);
-      passEncoder.setBindGroup(0, globalUniforms.uniformBindGroup);
+      passEncoder.setPipeline(this.renderPipeline);
+      passEncoder.setBindGroup(0, this.globalUniforms.uniformBindGroup);
 
       // Loop over each mesh and render it
-      meshes.forEach((mesh) => {
+      this.meshes.forEach((mesh) => {
         // console.log("[RENDERING] mesh:", mesh.name);
 
         // Get mesh material and update material buffers with new data
-        const material = materials[mesh.material];
+        const material = this.materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
         material.uniforms.updateUniforms(this.device);
 
@@ -369,7 +382,7 @@ export default class WebGPURenderer {
       this.device.queue.submit([commandEncoder.finish()]);
 
       // Rinse repeat
-      frameCount++;
+      this.frameCount++;
       requestAnimationFrame(render);
     };
 
