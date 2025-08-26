@@ -13,6 +13,21 @@ import { Vector3D, vertexBufferDescriptor } from "./vertex";
 import { Mesh } from "./mesh";
 import Material from "./material";
 
+const PIANO_KEY_SPACING = {
+  C: 0,
+  "C#": 1,
+  D: 2,
+  "D#": 3,
+  E: 4,
+  F: 5,
+  "F#": 6,
+  G: 7,
+  "G#": 8,
+  A: 9,
+  "A#": 10,
+  B: 11,
+};
+
 interface GlobalUniforms extends UniformsDataStructure {
   time: number;
   lightPosition: Vector3D;
@@ -165,6 +180,12 @@ export default class WebGPURenderer {
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
     const cubeMesh = generateCube(this.device, this.renderPipeline, 0.1);
+    const defaultMaterial = new Material(
+      this.device,
+      this.renderPipeline,
+      "Default"
+    );
+
     const { meshes: planeMeshes, materials: planeMats } = await importObj(
       "/models/plane-with-texture/plane-with-texture.obj",
       //   "/models/classic-piano/classic-piano.obj",
@@ -178,27 +199,28 @@ export default class WebGPURenderer {
     planeMeshes[0].uniforms.uniforms.position.y = 2;
     planeMeshes[0].uniforms.setUniforms();
 
-    const { meshes: monkeyMeshes, materials: monkeyMats } = await importObj(
+    const { meshes: customMesh, materials: customMats } = await importObj(
       // "/models/torus-knot-tri-untextured.obj",
       // "/models/cube-tri-untextured.obj",
-      "/models/suzanne-tri-untextured.obj",
-      // "/models/classic-piano/classic-piano.obj",
+      // "/models/ryoturia/ryoturia.obj",
+      // "/models/ryoturia/ryoturia-keys.obj",
+      // "/models/suzanne-tri-untextured.obj",
+      // "/models/piano-key-set/piano-key-set.obj",
+      "/models/classic-piano/classic-piano.obj",
       this.device,
       this.renderPipeline,
       sampler
     );
 
-    this.meshes = [...planeMeshes, ...monkeyMeshes, cubeMesh];
-    this.materials = { ...planeMats, ...monkeyMats };
+    this.meshes = [...planeMeshes, ...customMesh, cubeMesh];
+    // this.meshes = [...customMesh];
+    this.materials = { ...planeMats, ...customMats, Default: defaultMaterial };
 
     // Test updating uniforms
     cubeMesh.uniforms.uniforms.scale.x = 4;
     cubeMesh.uniforms.uniforms.scale.y = 4;
     cubeMesh.uniforms.uniforms.scale.z = 4;
     cubeMesh.uniforms.setUniforms();
-
-    monkeyMeshes[0].uniforms.uniforms.position.x = -2;
-    monkeyMeshes[0].uniforms.uniforms.position.y = -2;
 
     console.log("[RENDERER] loaded OBJ", this.meshes, this.materials);
 
@@ -361,7 +383,11 @@ export default class WebGPURenderer {
 
       // Loop over each mesh and render it
       this.meshes.forEach((mesh) => {
-        // console.log("[RENDERING] mesh:", mesh.name);
+        // console.log(
+        //   "[RENDERING] mesh:",
+        //   mesh.geometry.name,
+        //   mesh.uniforms.uniforms.position
+        // );
 
         // Get mesh material and update material buffers with new data
         const material = this.materials[mesh.material];

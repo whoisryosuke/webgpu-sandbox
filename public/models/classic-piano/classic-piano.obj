@@ -1,6 +1,6 @@
 # Blender 4.5.1 LTS
 # www.blender.org
-mtllib Classic Piano - R7 - Web - Triangulated.mtl
+mtllib classic-piano.mtl
 o Lid
 v 0.135257 0.394839 -0.460710
 v -0.435971 0.199092 -1.000000

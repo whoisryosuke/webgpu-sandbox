@@ -73,7 +73,7 @@ export default class AudioPlayer {
    * Handle the MIDI input from store and play new notes
    */
   handleMidiInput = (state: UserInputMap) => {
-    console.log("[AUDIO] Handle MIDI input");
+    // console.log("[AUDIO] Handle MIDI input");
 
     // We filter by only pressed keys so we don't loop over 88+ keys each press
     const pressedKeys = Object.entries(state).filter(
@@ -118,7 +118,7 @@ export default class AudioPlayer {
     }
 
     // Play audio
-    console.log("playing");
+    // console.log("playing");
 
     // Create the buffer node and attach our audio buffer
     this.audio = this.context.createBufferSource();

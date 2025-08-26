@@ -52,12 +52,12 @@ export default class KeyboardInput {
   }
 
   handleKeyDown = (e: KeyboardEvent) => {
-    console.log("key pressed", e.key, e);
+    // console.log("key pressed", e.key, e);
     this.state[e.key] = true;
     this.handleKeyPress(e.key, true);
   };
   handleKeyUp = (e: KeyboardEvent) => {
-    console.log("key released", e.key, e);
+    // console.log("key released", e.key, e);
     this.state[e.key] = false;
     this.handleKeyPress(e.key, false);
   };

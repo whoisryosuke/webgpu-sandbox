@@ -4,6 +4,8 @@ import DebugUIInstance from "./core/debug-ui";
 import InputManager from "./core/input/input-manager";
 import { KeyboardInputMap, KeyboardMusicInputMap } from "./core/input/keyboard";
 import musicStore from "./core/store/music";
+import inputStore from "./core/store/input";
+import { Midi } from "tonal";
 
 const DEFAULT_KEYBOARD_MAP: KeyboardInputMap = {
   w: "forward",
@@ -49,6 +51,20 @@ const renderCallback = (props: RenderProps) => {
   // props.meshes[1].uniforms.uniforms.position.y += 0.01;
   // props.meshes[1].uniforms.uniforms.position.z += 0.01;
   // props.meshes[1].uniforms.setUniforms();
+
+  const input = musicStore.getState();
+  // Piano keys
+  props.meshes.forEach((pianoMesh) => {
+    const name = pianoMesh.geometry.name;
+    if (!name.includes("WhiteKey") && !name.includes("BlackKey")) return;
+    const pianoKey = name.split(".")[1];
+
+    const midiKey = Midi.toMidi(`${pianoKey}4`);
+    const pressed = midiKey ? input[midiKey].pressed : false;
+
+    pianoMesh.uniforms.uniforms.position.y = pressed ? -0.05 : 0;
+    pianoMesh.uniforms.setUniforms();
+  });
 };
 
 async function main() {

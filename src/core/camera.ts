@@ -104,7 +104,7 @@ export default class Camera {
     this.handleEvents();
 
     // Subscribe to input store
-    this.subscribeToInput();
+    // this.subscribeToInput();
 
     // Debug UI
     this.debugUI();
