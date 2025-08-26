@@ -383,11 +383,7 @@ export async function importObj(
 
         objMaterials.forEach((objMaterial) => {
           // Convert OBJ material to standard renderer material
-          const material = new Material(
-            device,
-            renderPipeline,
-            objMaterial.name
-          );
+          const material = new Material(device, objMaterial.name);
 
           // Setup uniform data with material properties
           const uniforms: MaterialUniform = {
@@ -414,13 +410,12 @@ export async function importObj(
           if (objMaterial.textures.diffuse) {
             material.addTexture(
               device,
-              renderPipeline,
               objMaterial.textures.diffuse,
               sampler,
               "diffuse"
             );
           } else {
-            material.createDefaultTexture(device, renderPipeline, sampler);
+            material.createDefaultTexture(device, sampler);
           }
 
           // Add material to cache

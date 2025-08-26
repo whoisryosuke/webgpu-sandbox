@@ -1,5 +1,7 @@
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { RGBAColor, rgbaToArray } from "./import/obj";
+import { getRenderPipeline } from "./render-pipeline";
+import rendererStore from "./store/renderer";
 import { createTexture, createTextureBindGroup } from "./texture";
 import { Uniforms, UniformsDataStructure } from "./uniforms";
 import { Vector2D, Vector3D, Vector4D } from "./vertex";
@@ -66,15 +68,23 @@ export default class Material {
   textures: MaterialTextureMap = {};
   textureBindGroup?: GPUBindGroup;
 
+  renderPipeline: GPURenderPipeline;
+
   constructor(
     device: GPUDevice,
-    renderPipeline: GPURenderPipeline,
-    name: string
+    name: string,
+    renderPipelineName: string = "Default"
   ) {
     this.name = name;
+
+    // Get the appropriate render pipeline from store
+    const renderPipeline = getRenderPipeline(renderPipelineName);
+    this.renderPipeline = renderPipeline;
+
+    // Create uniforms for material (aka properties shared to shader)
     this.uniforms = new Uniforms(
       device,
-      renderPipeline,
+      this.renderPipeline,
       "Material",
       createMaterialUniform(),
       UNIFORM_BIND_GROUP_LAYOUT_IDS["material"]
@@ -83,7 +93,6 @@ export default class Material {
 
   addTexture(
     device: GPUDevice,
-    renderPipeline: GPURenderPipeline,
     image: ImageBitmap,
     sampler: GPUSampler,
     type: MaterialTextureTypes
@@ -91,17 +100,11 @@ export default class Material {
     const texture = createTexture(device, image);
     this.textures[type] = texture;
 
-    this.createTextureBindGroup(
-      device,
-      renderPipeline,
-      sampler,
-      this.textures[type]
-    );
+    this.createTextureBindGroup(device, sampler, this.textures[type]);
   }
 
   createTextureBindGroup(
     device: GPUDevice,
-    renderPipeline: GPURenderPipeline,
     sampler: GPUSampler,
     texture: GPUTexture
   ) {
@@ -111,17 +114,13 @@ export default class Material {
     // For now we only support 1: diffuse
     this.textureBindGroup = createTextureBindGroup(
       device,
-      renderPipeline,
+      this.renderPipeline,
       texture,
       sampler
     );
   }
 
-  createDefaultTexture(
-    device: GPUDevice,
-    renderPipeline: GPURenderPipeline,
-    sampler: GPUSampler
-  ) {
+  createDefaultTexture(device: GPUDevice, sampler: GPUSampler) {
     const texture = device.createTexture({
       size: [1, 1],
       format: "rgba8unorm",
@@ -135,6 +134,6 @@ export default class Material {
       { width: 1, height: 1 }
     );
 
-    this.createTextureBindGroup(device, renderPipeline, sampler, texture);
+    this.createTextureBindGroup(device, sampler, texture);
   }
 }

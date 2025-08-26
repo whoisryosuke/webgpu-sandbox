@@ -107,3 +107,16 @@ export function createRenderPipeline(config: RenderPipelineConfig) {
   // Return the name to user (in case we auto generated)
   return { name, pipeline };
 }
+
+export function getRenderPipeline(renderPipelineName: string) {
+  // Get the appropriate render pipeline from store
+  const { renderPipelines } = rendererStore.getState();
+  const renderPipeline = renderPipelines.get(renderPipelineName);
+  if (!renderPipeline) {
+    throw Error(
+      `[MATERIAL] Couldn't create material. Render pipeline "${renderPipelineName}" not found in store.`
+    );
+  }
+
+  return renderPipeline;
+}

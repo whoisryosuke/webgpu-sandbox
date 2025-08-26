@@ -13,7 +13,12 @@ import { Vector3D, vertexBufferDescriptor } from "./vertex";
 import { Mesh } from "./mesh";
 import Material from "./material";
 import { getDevice, requestWebGPUDevice } from "./device";
-import { createRenderPipeline, RenderPipelineConfig } from "./render-pipeline";
+import {
+  createRenderPipeline,
+  getRenderPipeline,
+  RenderPipelineConfig,
+} from "./render-pipeline";
+import rendererStore from "./store/renderer";
 
 const PIANO_KEY_SPACING = {
   C: 0,
@@ -104,11 +109,7 @@ export default class WebGPURenderer {
     // Generate vertices for a plane (a rectangle aka 2 tris)
     // const { vertices, indices } = generatePlane(0.5);
     const cubeMesh = generateCube(this.device, this.renderPipeline, 0.1);
-    const defaultMaterial = new Material(
-      this.device,
-      this.renderPipeline,
-      "Default"
-    );
+    const defaultMaterial = new Material(this.device, "Default");
 
     const { meshes: planeMeshes, materials: planeMats } = await importObj(
       "/models/plane-with-texture/plane-with-texture.obj",
@@ -302,19 +303,20 @@ export default class WebGPURenderer {
       // );
 
       // Render
-      passEncoder.setPipeline(this.renderPipeline);
-      passEncoder.setBindGroup(0, this.globalUniforms.uniformBindGroup);
-
       // Loop over each mesh and render it
       this.meshes.forEach((mesh) => {
+        // Get mesh material and update material buffers with new data
+        const material = this.materials[mesh.material];
+
+        passEncoder.setPipeline(material.renderPipeline);
+        passEncoder.setBindGroup(0, this.globalUniforms.uniformBindGroup);
+
         // console.log(
         //   "[RENDERING] mesh:",
         //   mesh.geometry.name,
         //   mesh.uniforms.uniforms.position
         // );
 
-        // Get mesh material and update material buffers with new data
-        const material = this.materials[mesh.material];
         // console.log("[RENDERING] material", mesh.material, material);
         material.uniforms.updateUniforms();
 
