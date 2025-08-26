@@ -51,7 +51,69 @@ export function createRenderPipeline(config: RenderPipelineConfig) {
     }
   }
 
-  // Setup shader
+  // Because we allow for custom shaders, we need to explictly define the bind group layout
+  // If we set pipeline to `auto` and it doesn't detect correct layout from shader it'll fail
+  // which isn't fun for the user or practical
+  const globalUniformLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "uniform",
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "uniform",
+        },
+      },
+    ],
+  });
+  const localUniformLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "uniform",
+        },
+      },
+    ],
+  });
+  const materialUniformLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: "uniform",
+        },
+      },
+    ],
+  });
+  const textureUniformLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT,
+        sampler: {
+          type: "filtering", // Type of sampler (e.g., for linear interpolation)
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: {
+          sampleType: "float", // The type of data sampled from the texture (e.g., 'float', 'unfilterable-float', 'depth')
+          viewDimension: "2d", // The dimension of the texture view (e.g., '2d', 'cube', '3d')
+          multisampled: false, // Whether the texture is multisampled
+        },
+      },
+    ],
+  });
 
   // Render pipeline
   const pipelineDescriptor: GPURenderPipelineDescriptor = {
@@ -86,12 +148,19 @@ export function createRenderPipeline(config: RenderPipelineConfig) {
     },
 
     // This determines the bind group layout automatically by analyzing the shader modules
-    layout: "auto",
+    // layout: "auto",
 
     // Manually define the bind group layout for shader uniforms
-    // layout: this.device.createPipelineLayout({
-    //   bindGroupLayouts: [bindGroupLayout],
-    // }),
+    // Each layout represents a `@group` and it's multiple `@binding` from the WGSL
+    // The order here is the group numbers (aka 1st in array is `@group(0)`)
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        globalUniformLayout,
+        localUniformLayout,
+        materialUniformLayout,
+        textureUniformLayout,
+      ],
+    }),
   };
 
   const pipeline = device.createRenderPipeline(pipelineDescriptor);

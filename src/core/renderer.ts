@@ -1,4 +1,4 @@
-import defaultShader from "../shaders/default.wgsl?raw";
+import customShader from "../shaders/examples/custom.wgsl?raw";
 import Camera from "./camera";
 import { mat4, vec4 } from "wgpu-matrix";
 import ParticleSystem from "./particle-system";
@@ -50,7 +50,6 @@ export default class WebGPURenderer {
   canvas!: HTMLCanvasElement;
   device!: GPUDevice;
   context!: GPUCanvasContext;
-  renderPipeline!: GPURenderPipeline;
   camera!: Camera;
   depthTexture!: GPUTexture;
   multisampleTexture!: GPUTexture;
@@ -90,14 +89,13 @@ export default class WebGPURenderer {
       format: "bgra8unorm",
     });
 
-    // Setup render pipeline
+    // Setup default render pipeline (basically PBR)
     const renderConfig: RenderPipelineConfig = {
       // shader: defaultShader,
       name: "Default",
     };
     const { name: renderPipelineName, pipeline } =
       createRenderPipeline(renderConfig);
-    this.renderPipeline = pipeline;
 
     // Create a sampler with linear filtering for smooth interpolation.
     const sampler = this.device.createSampler({
@@ -105,10 +103,26 @@ export default class WebGPURenderer {
       minFilter: "linear",
     });
 
-    // Setup vertex buffer
-    // Generate vertices for a plane (a rectangle aka 2 tris)
-    // const { vertices, indices } = generatePlane(0.5);
-    const cubeMesh = generateCube(this.device, this.renderPipeline, 0.1);
+    // Example: Custom shader
+    const customShaderConfig: RenderPipelineConfig = {
+      shader: customShader,
+      name: "Custom",
+    };
+    const customRenderPipeline = createRenderPipeline(customShaderConfig);
+    const customMaterial = new Material(
+      this.device,
+      "Custom",
+      customRenderPipeline.name
+    );
+
+    // Create meshes (with geometry and materials inside) to render
+    const cubeMesh = generateCube(
+      this.device,
+      customRenderPipeline.pipeline,
+      0.1
+    );
+
+    // Create a default material for any object
     const defaultMaterial = new Material(this.device, "Default");
 
     const { meshes: planeMeshes, materials: planeMats } = await importObj(
@@ -116,7 +130,7 @@ export default class WebGPURenderer {
       //   "/models/classic-piano/classic-piano.obj",
       // "/models/suzanne-tri-untextured.obj",
       this.device,
-      this.renderPipeline,
+      pipeline,
       sampler
     );
 
@@ -133,15 +147,22 @@ export default class WebGPURenderer {
       // "/models/piano-key-set/piano-key-set.obj",
       "/models/classic-piano/classic-piano.obj",
       this.device,
-      this.renderPipeline,
+      pipeline,
       sampler
     );
 
     this.meshes = [...planeMeshes, ...customMesh, cubeMesh];
     // this.meshes = [...customMesh];
-    this.materials = { ...planeMats, ...customMats, Default: defaultMaterial };
+    this.materials = {
+      ...planeMats,
+      ...customMats,
+      Default: defaultMaterial,
+      Custom: customMaterial,
+    };
 
     // Test updating uniforms
+    cubeMesh.material = "Custom";
+    cubeMesh.uniforms.uniforms.position.x = 4;
     cubeMesh.uniforms.uniforms.scale.x = 4;
     cubeMesh.uniforms.uniforms.scale.y = 4;
     cubeMesh.uniforms.uniforms.scale.z = 4;
@@ -192,7 +213,7 @@ export default class WebGPURenderer {
     // Global Uniforms
     this.globalUniforms = new Uniforms(
       this.device,
-      this.renderPipeline,
+      pipeline,
       "Global",
       globalUniformData,
       UNIFORM_BIND_GROUP_LAYOUT_IDS["globals"],
@@ -307,7 +328,9 @@ export default class WebGPURenderer {
       this.meshes.forEach((mesh) => {
         // Get mesh material and update material buffers with new data
         const material = this.materials[mesh.material];
+        // console.log("[RENDERING] material", mesh.material, material);
 
+        // Set the pipeline to the match the material
         passEncoder.setPipeline(material.renderPipeline);
         passEncoder.setBindGroup(0, this.globalUniforms.uniformBindGroup);
 
@@ -317,7 +340,6 @@ export default class WebGPURenderer {
         //   mesh.uniforms.uniforms.position
         // );
 
-        // console.log("[RENDERING] material", mesh.material, material);
         material.uniforms.updateUniforms();
 
         // Set bind groups (uniforms, texture, etc)
