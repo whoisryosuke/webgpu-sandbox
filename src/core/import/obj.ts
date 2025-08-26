@@ -22,6 +22,19 @@ export function rgbaToArray(color: RGBAColor) {
 
 const generateDefaultColor = () => ({ r: 0, g: 0, b: 0 });
 
+const createDefaultMaterial = () => ({
+  name: "Default",
+  ambient: generateDefaultColor(),
+  diffuse: generateDefaultColor(),
+  specularColor: generateDefaultColor(),
+  specularAmount: 500,
+  emissive: generateDefaultColor(),
+  opticalDensity: 0,
+  opacity: 0,
+  illum: 0,
+  textures: {},
+});
+
 /**
  * Map of all textures attached to an OBJ
  */
@@ -116,18 +129,11 @@ export async function loadMaterialLibrary(
 
   // Grab every line in document
   const lines = materialFile.split("\n");
-  let material: OBJMaterial = {
-    name: "Default",
-    ambient: generateDefaultColor(),
-    diffuse: generateDefaultColor(),
-    specularColor: generateDefaultColor(),
-    specularAmount: 500,
-    emissive: generateDefaultColor(),
-    opticalDensity: 0,
-    opacity: 0,
-    illum: 0,
-    textures: {},
-  };
+
+  const materials: OBJMaterial[] = [];
+  let material: OBJMaterial = createDefaultMaterial();
+  let materialCount = 0;
+
   for (const line of lines) {
     const trimmedLine = line.trim();
 
@@ -141,7 +147,21 @@ export async function loadMaterialLibrary(
 
     // Process each property by it's label
     switch (parts[0]) {
-      case "newmtl": // Material name
+      case "newmtl":
+        // Each material file can contain multiple materials.
+        // Each time this is called, it means it's a new material
+
+        // First time? Skip it.
+        if (materialCount == 0) {
+          materialCount += 1;
+        } else {
+          // Not first time? Push material onto stack.
+          materials.push(material);
+          material = createDefaultMaterial();
+        }
+
+        // Material name
+        console.log("[OBJ] Importing new material", parts[1]);
         material.name = parts[1];
         break;
       case "Ka": // Ambient Color
@@ -195,8 +215,11 @@ export async function loadMaterialLibrary(
     }
   }
 
+  // Push final
+  materials.push(material);
+
   // console.log("[OBJ] Material created", material);
-  return material;
+  return materials;
 }
 
 export async function loadObj(url: string) {
@@ -212,9 +235,6 @@ interface Face {
 
 type OBJObject = {
   name: string;
-  vertices: Vector3D[];
-  normals: Vector3D[];
-  uvs: Vector2D[];
   faces: Face[];
   /**
    * Key that maps to material cache
@@ -225,10 +245,7 @@ type OBJObject = {
 function createDefaultObject() {
   return {
     name: "",
-    vertices: [],
-    normals: [],
-    uvs: [],
-    faces: [],
+    faces: new Array(),
     material: "Default",
   };
 }
@@ -241,7 +258,15 @@ export async function importObj(
 ) {
   const objString = await fetchTextFile(url);
 
+  // OBJ files may contain multiple "objects" (aka meshes)
+  // it assumes data will be global, and indexes keep incrementing after each object
+  const vertices = new Array();
+  const normals = new Array();
+  const uvs = new Array();
+
+  // We create "objects" that represent each individual object in the `.obj` file
   let objects: OBJObject[] = [];
+  // And we make a new "object" to start adding stuff into
   let object: OBJObject = createDefaultObject();
   const materials: Record<string, Material> = {};
 
@@ -274,7 +299,7 @@ export async function importObj(
 
       case "v": // Vertex
         if (parts.length === 4) {
-          object.vertices.push({
+          vertices.push({
             x: parseFloat(parts[1]),
             y: parseFloat(parts[2]),
             z: parseFloat(parts[3]),
@@ -286,7 +311,7 @@ export async function importObj(
 
       case "vn": // Normal
         if (parts.length === 4) {
-          object.normals.push({
+          normals.push({
             x: parseFloat(parts[1]),
             y: parseFloat(parts[2]),
             z: parseFloat(parts[3]),
@@ -298,7 +323,7 @@ export async function importObj(
 
       case "vt": // Texture Coordinate
         if (parts.length === 3) {
-          object.uvs.push({
+          uvs.push({
             x: parseFloat(parts[1]),
             y: parseFloat(parts[2]),
           });
@@ -314,9 +339,8 @@ export async function importObj(
           uvs: [0, 0],
         };
 
-        // console.log("[OBJ] Detected face", parts);
-
         // Break down the face (expect 3 for now, quads/n-gons not supported)
+        // aka make sure mesh is "triangulated"
         parts.forEach((part, i) => {
           if (part == "f") return;
 
@@ -352,47 +376,57 @@ export async function importObj(
         // We split path by `/`, remove last part with OBJ file, and return path
         const objPath = url.split("/").slice(0, -1).join("/");
         // console.log("[OBJ] Loading material file...", materialLibPath, objPath);
-        const objMaterial = await loadMaterialLibrary(materialLibPath, objPath);
+        const objMaterials = await loadMaterialLibrary(
+          materialLibPath,
+          objPath
+        );
 
-        // Convert OBJ material to standard renderer material
-        const material = new Material(device, renderPipeline, objMaterial.name);
-
-        // Setup uniform data with material properties
-        const uniforms: MaterialUniform = {
-          color: {
-            r: objMaterial.diffuse.r,
-            g: objMaterial.diffuse.g,
-            b: objMaterial.diffuse.b,
-            a: objMaterial.opacity,
-          },
-          specular: objMaterial.specularAmount,
-          flags: {
-            texture: objMaterial.textures.diffuse ? true : false,
-            debugUv: false,
-            debugNormals: false,
-            debugColor: false,
-          },
-        };
-
-        // Update material with new uniform data
-        material.uniforms.uniforms = { ...uniforms };
-        material.uniforms.setUniforms(device);
-
-        // Do we have textures? Create them using material
-        if (objMaterial.textures.diffuse) {
-          material.addTexture(
+        objMaterials.forEach((objMaterial) => {
+          // Convert OBJ material to standard renderer material
+          const material = new Material(
             device,
             renderPipeline,
-            objMaterial.textures.diffuse,
-            sampler,
-            "diffuse"
+            objMaterial.name
           );
-        } else {
-          material.createDefaultTexture(device, renderPipeline, sampler);
-        }
 
-        // Add material to cache
-        materials[objMaterial.name] = material;
+          // Setup uniform data with material properties
+          const uniforms: MaterialUniform = {
+            color: {
+              r: objMaterial.diffuse.r,
+              g: objMaterial.diffuse.g,
+              b: objMaterial.diffuse.b,
+              a: objMaterial.opacity,
+            },
+            specular: objMaterial.specularAmount,
+            flags: {
+              texture: objMaterial.textures.diffuse ? true : false,
+              debugUv: false,
+              debugNormals: false,
+              debugColor: false,
+            },
+          };
+
+          // Update material with new uniform data
+          material.uniforms.uniforms = { ...uniforms };
+          material.uniforms.setUniforms();
+
+          // Do we have textures? Create them using material
+          if (objMaterial.textures.diffuse) {
+            material.addTexture(
+              device,
+              renderPipeline,
+              objMaterial.textures.diffuse,
+              sampler,
+              "diffuse"
+            );
+          } else {
+            material.createDefaultTexture(device, renderPipeline, sampler);
+          }
+
+          // Add material to cache
+          materials[objMaterial.name] = material;
+        });
+
         break;
 
       case "usemtl": // Use Material
@@ -421,7 +455,8 @@ export async function importObj(
     obj.faces.forEach((face, index) => {
       // Vertices
       face.vertices.forEach((vertexId) => {
-        const vertex = obj.vertices[vertexId];
+        const vertex = vertices[vertexId];
+        // console.log("[OBJ] meshPositions", vertex);
         meshPositions.push({ ...vertex });
       });
 
@@ -431,13 +466,13 @@ export async function importObj(
 
       // Normals
       face.normals.forEach((normalId) => {
-        const normal = obj.normals[normalId];
+        const normal = normals[normalId];
         meshNormals.push({ ...normal });
       });
 
       // UVs
       face.uvs.forEach((uvId) => {
-        let uv = obj.uvs[uvId];
+        let uv = uvs[uvId];
         if (!uv)
           uv = {
             x: 0,
