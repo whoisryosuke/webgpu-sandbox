@@ -64,7 +64,9 @@ export default class WebGPURenderer {
   materials: Record<string, Material> = {};
 
   async init() {
+    // See if user supports WebGPU and store "device" in global store
     await requestWebGPUDevice();
+    // Grab the device from the global store
     this.device = getDevice();
 
     // Setup canvas and context
