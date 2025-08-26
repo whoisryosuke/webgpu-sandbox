@@ -12,6 +12,7 @@ import { Uniforms, UniformsDataStructure } from "./uniforms";
 import { Vector3D, vertexBufferDescriptor } from "./vertex";
 import { Mesh } from "./mesh";
 import Material from "./material";
+import { getDevice, requestWebGPUDevice } from "./device";
 
 const PIANO_KEY_SPACING = {
   C: 0,
@@ -62,15 +63,8 @@ export default class WebGPURenderer {
   materials: Record<string, Material> = {};
 
   async init() {
-    // Setup adapter and device
-    const adapter = await window.navigator.gpu.requestAdapter();
-    if (!adapter) {
-      console.error(
-        "Couldn't create an adapter. Please check if your browser supports WebGPU."
-      );
-      return;
-    }
-    this.device = await adapter.requestDevice();
+    await requestWebGPUDevice();
+    this.device = getDevice();
 
     // Setup canvas and context
     this.canvas = this.getCanvas();
