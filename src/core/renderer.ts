@@ -13,6 +13,7 @@ import { Vector3D, vertexBufferDescriptor } from "./vertex";
 import { Mesh } from "./mesh";
 import Material from "./material";
 import { getDevice, requestWebGPUDevice } from "./device";
+import { createRenderPipeline, RenderPipelineConfig } from "./render-pipeline";
 
 const PIANO_KEY_SPACING = {
   C: 0,
@@ -162,7 +163,15 @@ export default class WebGPURenderer {
       //   bindGroupLayouts: [bindGroupLayout],
       // }),
     };
-    this.renderPipeline = this.device.createRenderPipeline(pipelineDescriptor);
+    // this.renderPipeline = this.device.createRenderPipeline(pipelineDescriptor);
+
+    const renderConfig: RenderPipelineConfig = {
+      // shader: defaultShader,
+      name: "Default",
+    };
+    const { name: renderPipelineName, pipeline } =
+      createRenderPipeline(renderConfig);
+    this.renderPipeline = pipeline;
 
     // Create a sampler with linear filtering for smooth interpolation.
     const sampler = this.device.createSampler({
