@@ -183,7 +183,7 @@ export function getRenderPipeline(renderPipelineName: string) {
   const renderPipeline = renderPipelines.get(renderPipelineName);
   if (!renderPipeline) {
     throw Error(
-      `[MATERIAL] Couldn't create material. Render pipeline "${renderPipelineName}" not found in store.`
+      `[RENDER PIPELINE] Render pipeline "${renderPipelineName}" not found in store.`
     );
   }
 
