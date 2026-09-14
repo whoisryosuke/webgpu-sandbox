@@ -1,6 +1,6 @@
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { RGBAColor, rgbaToArray } from "./import/obj";
-import { getRenderPipeline } from "./render-pipeline";
+import { getRenderPipeline_DEPRECATED } from "./render-pipeline";
 import rendererStore from "./store/renderer";
 import { createTexture, createTextureBindGroup } from "./texture";
 import { Uniforms, UniformsDataStructure } from "./uniforms";
@@ -73,12 +73,11 @@ export default class Material {
   constructor(
     device: GPUDevice,
     name: string,
-    renderPipelineName: string = "Default"
+    renderPipeline: GPURenderPipeline,
   ) {
     this.name = name;
 
     // Get the appropriate render pipeline from store
-    const renderPipeline = getRenderPipeline(renderPipelineName);
     this.renderPipeline = renderPipeline;
 
     // Create uniforms for material (aka properties shared to shader)
@@ -87,7 +86,7 @@ export default class Material {
       this.renderPipeline,
       "Material",
       createMaterialUniform(),
-      UNIFORM_BIND_GROUP_LAYOUT_IDS["material"]
+      UNIFORM_BIND_GROUP_LAYOUT_IDS["material"],
     );
   }
 
@@ -95,7 +94,7 @@ export default class Material {
     device: GPUDevice,
     image: ImageBitmap,
     sampler: GPUSampler,
-    type: MaterialTextureTypes
+    type: MaterialTextureTypes,
   ) {
     const texture = createTexture(device, image);
     this.textures[type] = texture;
@@ -106,7 +105,7 @@ export default class Material {
   createTextureBindGroup(
     device: GPUDevice,
     sampler: GPUSampler,
-    texture: GPUTexture
+    texture: GPUTexture,
   ) {
     // We create a bind group to contain the texture and it's buffer
     // Ideally this bind group is shared between all images,
@@ -116,7 +115,7 @@ export default class Material {
       device,
       this.renderPipeline,
       texture,
-      sampler
+      sampler,
     );
   }
 
@@ -131,7 +130,7 @@ export default class Material {
       { texture },
       new Uint8Array([255, 255, 255, 255]), // White pixel
       { bytesPerRow: 4 },
-      { width: 1, height: 1 }
+      { width: 1, height: 1 },
     );
 
     this.createTextureBindGroup(device, sampler, texture);

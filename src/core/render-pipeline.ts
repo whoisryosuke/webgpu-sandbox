@@ -4,6 +4,11 @@ import defaultShader from "../shaders/default.wgsl?raw";
 import rendererStore from "./store/renderer";
 import { simpleRandomHash } from "./helpers/random";
 
+export interface RenderPipelineCacheItem {
+  name: string;
+  pipeline: GPURenderPipeline;
+}
+
 export interface RenderPipelineConfig {
   name?: string;
   vertex?: string;
@@ -12,7 +17,9 @@ export interface RenderPipelineConfig {
   wireframe?: boolean;
 }
 
-export function createRenderPipeline(config: RenderPipelineConfig) {
+export function createRenderPipeline(
+  config: RenderPipelineConfig,
+): RenderPipelineCacheItem {
   const device = getDevice();
 
   // Setup shader
@@ -167,23 +174,17 @@ export function createRenderPipeline(config: RenderPipelineConfig) {
 
   const name = config.name ?? simpleRandomHash();
 
-  // Add to global store
-  rendererStore.setState((prev) => ({
-    ...prev,
-    renderPipelines: prev.renderPipelines.set(name, pipeline),
-  }));
-
   // Return the name to user (in case we auto generated)
   return { name, pipeline };
 }
 
-export function getRenderPipeline(renderPipelineName: string) {
+export function getRenderPipeline_DEPRECATED(renderPipelineName: string) {
   // Get the appropriate render pipeline from store
   const { renderPipelines } = rendererStore.getState();
   const renderPipeline = renderPipelines.get(renderPipelineName);
   if (!renderPipeline) {
     throw Error(
-      `[RENDER PIPELINE] Render pipeline "${renderPipelineName}" not found in store.`
+      `[RENDER PIPELINE] Render pipeline "${renderPipelineName}" not found in store.`,
     );
   }
 

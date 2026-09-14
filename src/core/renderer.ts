@@ -6,16 +6,20 @@ import AudioPlayer from "./audio";
 import { importObj, loadObj } from "./import/obj";
 import { createTexture, createTextureBindGroup, loadImage } from "./texture";
 import { generateCube } from "../primitives/cube";
-import Geometry from "./geometry";
+import Geometry, {
+  generateIndexBufferData,
+  generateVertexBufferData,
+} from "./geometry";
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { Uniforms, UniformsDataStructure } from "./uniforms";
-import { Vector3D, vertexBufferDescriptor } from "./vertex";
+import { Vector2D, Vector3D, vertexBufferDescriptor } from "./vertex";
 import { Mesh } from "./mesh";
 import Material from "./material";
 import { getDevice, requestWebGPUDevice } from "./device";
 import {
   createRenderPipeline,
-  getRenderPipeline,
+  getRenderPipeline_DEPRECATED,
+  RenderPipelineCacheItem,
   RenderPipelineConfig,
 } from "./render-pipeline";
 import rendererStore from "./store/renderer";
@@ -47,17 +51,19 @@ export type RenderProps = {
 };
 
 export default class WebGPURenderer {
+  // Core Dependencies
   canvas!: HTMLCanvasElement;
   device!: GPUDevice;
   context!: GPUCanvasContext;
   camera!: Camera;
   depthTexture!: GPUTexture;
   multisampleTexture!: GPUTexture;
-  audio!: AudioPlayer;
-  particleSystem!: ParticleSystem;
 
   // Uniforms
   globalUniforms!: Uniforms<GlobalUniforms>;
+
+  // Textures
+  sampler!: GPUSampler;
 
   // Timing
   frameCount: number = 0;
@@ -66,6 +72,7 @@ export default class WebGPURenderer {
   // Scene
   meshes: Mesh[] = [];
   materials: Record<string, Material> = {};
+  pipelines: Map<string, RenderPipelineCacheItem> = new Map();
 
   async init() {
     // See if user supports WebGPU and store "device" in global store
@@ -94,81 +101,47 @@ export default class WebGPURenderer {
       // shader: defaultShader,
       name: "Default",
     };
-    const { name: renderPipelineName, pipeline } =
-      createRenderPipeline(renderConfig);
+    const defaultRenderPipeline = createRenderPipeline(renderConfig);
+
+    // Save to local cache
+    this.pipelines.set(defaultRenderPipeline.name, defaultRenderPipeline);
 
     // Create a sampler with linear filtering for smooth interpolation.
-    const sampler = this.device.createSampler({
+    this.sampler = this.device.createSampler({
       magFilter: "linear",
       minFilter: "linear",
     });
 
     // Example: Custom shader
-    const customShaderConfig: RenderPipelineConfig = {
-      shader: customShader,
-      name: "Custom",
-    };
-    const customRenderPipeline = createRenderPipeline(customShaderConfig);
-    const customMaterial = new Material(
-      this.device,
-      "Custom",
-      customRenderPipeline.name
-    );
+    // const customShaderConfig: RenderPipelineConfig = {
+    //   shader: customShader,
+    //   name: "Custom",
+    // };
+    // const customRenderPipeline = createRenderPipeline(customShaderConfig);
+    // const customMaterial = new Material(
+    //   this.device,
+    //   "Custom",
+    //   customRenderPipeline.pipeline,
+    // );
 
     // Create meshes (with geometry and materials inside) to render
-    const cubeMesh = generateCube(
-      this.device,
-      customRenderPipeline.pipeline,
-      0.1
-    );
+    // const cubeMesh = generateCube(
+    //   this.device,
+    //   customRenderPipeline.pipeline,
+    //   0.1,
+    // );
 
     // Create a default material for any object
-    const defaultMaterial = new Material(this.device, "Default");
-
-    const { meshes: planeMeshes, materials: planeMats } = await importObj(
-      "/models/plane-with-texture/plane-with-texture.obj",
-      //   "/models/classic-piano/classic-piano.obj",
-      // "/models/suzanne-tri-untextured.obj",
+    const defaultMaterial = new Material(
       this.device,
-      pipeline,
-      sampler
+      "Default",
+      defaultRenderPipeline.pipeline,
     );
 
-    planeMeshes[0].uniforms.uniforms.position.x = 2;
-    planeMeshes[0].uniforms.uniforms.position.y = 2;
-    planeMeshes[0].uniforms.setUniforms();
-
-    const { meshes: customMesh, materials: customMats } = await importObj(
-      // "/models/torus-knot-tri-untextured.obj",
-      // "/models/cube-tri-untextured.obj",
-      // "/models/ryoturia/ryoturia.obj",
-      // "/models/ryoturia/ryoturia-keys.obj",
-      // "/models/suzanne-tri-untextured.obj",
-      // "/models/piano-key-set/piano-key-set.obj",
-      "/models/classic-piano/classic-piano.obj",
-      this.device,
-      pipeline,
-      sampler
-    );
-
-    this.meshes = [...planeMeshes, ...customMesh, cubeMesh];
-    // this.meshes = [...customMesh];
+    // Save material to cache
     this.materials = {
-      ...planeMats,
-      ...customMats,
       Default: defaultMaterial,
-      Custom: customMaterial,
     };
-
-    // Test updating uniforms
-    cubeMesh.material = "Custom";
-    cubeMesh.uniforms.uniforms.position.x = 4;
-    cubeMesh.uniforms.uniforms.scale.x = 4;
-    cubeMesh.uniforms.uniforms.scale.y = 4;
-    cubeMesh.uniforms.uniforms.scale.z = 4;
-    cubeMesh.uniforms.setUniforms();
-
-    console.log("[RENDERER] loaded OBJ", this.meshes, this.materials);
 
     // Create the camera
     this.camera = new Camera(this.device);
@@ -213,7 +186,7 @@ export default class WebGPURenderer {
     // Global Uniforms
     this.globalUniforms = new Uniforms(
       this.device,
-      pipeline,
+      defaultRenderPipeline.pipeline,
       "Global",
       globalUniformData,
       UNIFORM_BIND_GROUP_LAYOUT_IDS["globals"],
@@ -224,27 +197,92 @@ export default class WebGPURenderer {
             buffer: this.camera.buffer,
           },
         },
-      ]
+      ],
     );
 
     // Create depth and MSAA texture
     this.createCanvasTextures();
 
     // Create particle system
-    this.particleSystem = new ParticleSystem(
-      this.device,
-      this.camera,
-      cubeMesh.geometry
-    );
-
-    this.audio = new AudioPlayer();
-    await this.audio.load();
+    // this.particleSystem = new ParticleSystem(
+    //   this.device,
+    //   this.camera,
+    //   cubeMesh.geometry,
+    // );
 
     // Setup events
     this.setupResize();
 
     this.frameCount = 0;
     this.prevTime = 0;
+  }
+
+  getRenderPipeline(name: string) {
+    const defaultPipeline = this.pipelines.get(name);
+    if (!defaultPipeline)
+      throw new Error(`Couldn't get the render pipeline: ${name}`);
+
+    return defaultPipeline;
+  }
+
+  async loadObj(url: string = "/models/cube-tri-untextured.obj") {
+    const defaultPipeline = this.getRenderPipeline("Default");
+
+    const { meshes, materials } = await importObj(
+      url,
+      this.device,
+      defaultPipeline.pipeline,
+      this.sampler,
+    );
+
+    // Add meshes and material to local renderer cache
+    meshes.forEach((newMesh) => {
+      this.meshes.push(newMesh);
+    });
+
+    for (const name in materials) {
+      const newMaterial = materials[name];
+      this.materials[name] = newMaterial;
+    }
+  }
+
+  createGeometry(
+    name: string,
+    positions: Vector3D[],
+    normals: Vector3D[],
+    uvs: Vector2D[],
+    meshIndices: number[],
+  ) {
+    // Create "geometry" containing the vertex + index data
+    const geometry = new Geometry(this.device, {
+      name: name,
+      vertices: generateVertexBufferData(positions, normals, uvs),
+      indices: generateIndexBufferData(meshIndices),
+    });
+
+    return geometry;
+  }
+
+  /**
+   *
+   * @param renderPipeline -
+   * @param geometry - The geometry
+   * @param material - The key/name of the Material that should be loaded into renderer cache.
+   * @returns
+   */
+  addMesh(geometry: Geometry, material: string, renderPipelineName?: string) {
+    const pipelineKey = renderPipelineName ?? "Default";
+    const defaultPipeline = this.getRenderPipeline(pipelineKey);
+
+    // Create a mesh that combines geometry and material
+    const mesh = new Mesh(
+      this.device,
+      defaultPipeline.pipeline,
+      geometry,
+      material,
+    );
+
+    return mesh;
   }
 
   render(callback: (props: RenderProps) => void) {
@@ -259,9 +297,7 @@ export default class WebGPURenderer {
         return;
 
       // Get latest waveform data
-      let waveform;
-      if (this.audio) waveform = this.audio.waveform();
-      if (waveform) this.particleSystem?.updateAudioBuffer(waveform.buffer);
+      // if (waveform) this.particleSystem?.updateAudioBuffer(waveform.buffer);
       this.camera.loop();
 
       // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
@@ -288,7 +324,7 @@ export default class WebGPURenderer {
       const commandEncoder = this.device.createCommandEncoder();
 
       // Compute shaders
-      this.particleSystem?.compute(commandEncoder);
+      // this.particleSystem?.compute(commandEncoder);
 
       const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
       const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -311,7 +347,7 @@ export default class WebGPURenderer {
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
       // Render particles
-      this.particleSystem?.render(passEncoder);
+      // this.particleSystem?.render(passEncoder);
 
       // Update uniforms
       // this.device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
@@ -345,16 +381,16 @@ export default class WebGPURenderer {
         // Set bind groups (uniforms, texture, etc)
         passEncoder.setBindGroup(
           UNIFORM_BIND_GROUP_LAYOUT_IDS["locals"],
-          mesh.uniforms.uniformBindGroup
+          mesh.uniforms.uniformBindGroup,
         );
         passEncoder.setBindGroup(
           UNIFORM_BIND_GROUP_LAYOUT_IDS["material"],
-          material.uniforms.uniformBindGroup
+          material.uniforms.uniformBindGroup,
         );
         if (material && material.textureBindGroup) {
           passEncoder.setBindGroup(
             UNIFORM_BIND_GROUP_LAYOUT_IDS["texture"],
-            material.textureBindGroup
+            material.textureBindGroup,
           );
         }
 
@@ -393,7 +429,7 @@ export default class WebGPURenderer {
     const context = this.canvas.getContext("webgpu");
     if (!context) {
       throw new Error(
-        "Couldn't create a context with canvas element. Please check if your browser supports WebGPU."
+        "Couldn't create a context with canvas element. Please check if your browser supports WebGPU.",
       );
     }
 
@@ -448,11 +484,11 @@ export default class WebGPURenderer {
         const height = entry.contentBoxSize[0].blockSize;
         canvas.width = Math.max(
           1,
-          Math.min(width, this.device.limits.maxTextureDimension2D)
+          Math.min(width, this.device.limits.maxTextureDimension2D),
         );
         canvas.height = Math.max(
           1,
-          Math.min(height, this.device.limits.maxTextureDimension2D)
+          Math.min(height, this.device.limits.maxTextureDimension2D),
         );
         console.log("resizing...", canvas.width, canvas.height);
 
@@ -467,7 +503,7 @@ export default class WebGPURenderer {
 
   preventRightClick() {
     this.canvas.addEventListener("contextmenu", (event) =>
-      event.preventDefault()
+      event.preventDefault(),
     );
   }
 }
