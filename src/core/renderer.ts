@@ -217,6 +217,11 @@ export default class WebGPURenderer {
     this.prevTime = 0;
   }
 
+  /**
+   * Gets render pipeline from cache by key
+   * @param name
+   * @returns
+   */
   getRenderPipeline(name: string) {
     const defaultPipeline = this.pipelines.get(name);
     if (!defaultPipeline)
@@ -246,6 +251,15 @@ export default class WebGPURenderer {
     }
   }
 
+  /**
+   * Creates `Geometry` and appropriate buffers using provided 3D data.
+   * @param name
+   * @param positions
+   * @param normals
+   * @param uvs
+   * @param meshIndices
+   * @returns
+   */
   createGeometry(
     name: string,
     positions: Vector3D[],
@@ -264,7 +278,7 @@ export default class WebGPURenderer {
   }
 
   /**
-   *
+   * Adds a `Mesh` to the scene using provided `Geometry` and key of existing material.
    * @param renderPipeline -
    * @param geometry - The geometry
    * @param material - The key/name of the Material that should be loaded into renderer cache.
@@ -285,13 +299,40 @@ export default class WebGPURenderer {
     return mesh;
   }
 
-  createCube(renderPipelineName?: string, scale: number = 0.1) {
+  /**
+   * Creates a cube `Mesh` and adds to scene.
+   * @param scale
+   * @param renderPipelineName
+   */
+  createCube(scale: number = 0.1, renderPipelineName?: string) {
     const pipelineKey = renderPipelineName ?? "Default";
     const defaultPipeline = this.getRenderPipeline(pipelineKey);
 
     const cubeMesh = generateCube(this.device, defaultPipeline.pipeline, scale);
 
     this.meshes.push(cubeMesh);
+  }
+
+  /**
+   * Loads custom shader as render pipeline + material into scene.
+   * @param shaderName - The key/name of shader. Use it later to attach to mesh.
+   * @param shaderCode - The WGSL shader code with vertex and/or fragment
+   */
+  createCustomShader(shaderName: string, shaderCode: string) {
+    const customShaderConfig: RenderPipelineConfig = {
+      shader: shaderCode,
+      name: shaderName,
+    };
+    const customRenderPipeline = createRenderPipeline(customShaderConfig);
+    this.pipelines.set(shaderName, customRenderPipeline);
+
+    const customMaterial = new Material(
+      this.device,
+      shaderName,
+      customRenderPipeline.pipeline,
+    );
+
+    this.materials[shaderName] = customMaterial;
   }
 
   render(callback: (props: RenderProps) => void) {
