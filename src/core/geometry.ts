@@ -1,10 +1,10 @@
 import Material from "./material";
-import { Vector2D, Vector3D } from "./vertex";
+import { Vector2D, Vector3D, vertexBufferDescriptor } from "./vertex";
 
 export function generateVertexBufferData(
   positions: Vector3D[],
   normals: Vector3D[],
-  uvs: Vector2D[]
+  uvs: Vector2D[],
 ) {
   let newVertices: number[] = [];
   positions.forEach((position, index) => {
@@ -46,25 +46,33 @@ export default class Geometry {
    * Each vertex has: position (3), normal (3), UV (2) = 8 floats per vertex
    */
   vertices: Float32Array;
-  indices: Uint16Array;
+  indices?: Uint16Array;
 
   // Buffers
   vertexBuffer!: GPUBuffer;
-  indexBuffer!: GPUBuffer;
+  indexBuffer?: GPUBuffer;
+
+  // Configuration
+  vertexBufferDescriptor: GPUVertexBufferLayout[];
 
   constructor(
     device: GPUDevice,
     data: {
       vertices: Float32Array;
-      indices: Uint16Array;
+      indices?: Uint16Array;
       name?: string;
-    }
+    },
+    customVertexBufferDescriptor?: GPUVertexBufferLayout[],
   ) {
     this.name = data.name ?? "Mesh";
     this.vertices = data.vertices;
     this.indices = data.indices;
 
     this.createBuffers(device);
+
+    // Custom vertex stride or assume default PBR style (position, normal, UVs)
+    this.vertexBufferDescriptor =
+      customVertexBufferDescriptor ?? vertexBufferDescriptor;
   }
 
   createBuffers(device: GPUDevice) {
@@ -75,11 +83,14 @@ export default class Geometry {
     });
     device.queue.writeBuffer(this.vertexBuffer, 0, this.vertices.buffer);
 
-    this.indexBuffer = device.createBuffer({
-      label: "Index buffer",
-      size: this.indices.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(this.indexBuffer, 0, this.indices.buffer);
+    // Optional: Create index buffer if user passes indices
+    if (this.indices) {
+      this.indexBuffer = device.createBuffer({
+        label: "Index buffer",
+        size: this.indices.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(this.indexBuffer, 0, this.indices.buffer);
+    }
   }
 }

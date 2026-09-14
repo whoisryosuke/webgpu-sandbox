@@ -318,12 +318,21 @@ export default class WebGPURenderer {
    * @param shaderName - The key/name of shader. Use it later to attach to mesh.
    * @param shaderCode - The WGSL shader code with vertex and/or fragment
    */
-  createCustomShader(shaderName: string, shaderCode: string) {
+  createCustomShader(shaderName: string, shaderCode: string, mesh?: Mesh) {
     const customShaderConfig: RenderPipelineConfig = {
       shader: shaderCode,
       name: shaderName,
     };
-    const customRenderPipeline = createRenderPipeline(customShaderConfig);
+    // Did user pass a specific `Mesh`? Use a custom vertex layout for shader.
+    // e.g. if Geometry vertices are amplitude/index versus the default position/normal/UVs
+    const vertexBufferLayout = mesh
+      ? mesh.geometry.vertexBufferDescriptor
+      : undefined;
+
+    const customRenderPipeline = createRenderPipeline(
+      customShaderConfig,
+      vertexBufferLayout,
+    );
     this.pipelines.set(shaderName, customRenderPipeline);
 
     const customMaterial = new Material(
@@ -446,10 +455,14 @@ export default class WebGPURenderer {
 
         // Set geometry buffers (vertex + index)
         passEncoder.setVertexBuffer(0, mesh.geometry.vertexBuffer);
-        passEncoder.setIndexBuffer(mesh.geometry.indexBuffer, "uint16");
 
-        // Draw the mesh
-        passEncoder.drawIndexed(mesh.geometry.indices.length, 1);
+        // Draw using indices or directly using vertices
+        if (mesh.geometry.indices && mesh.geometry.indexBuffer) {
+          passEncoder.setIndexBuffer(mesh.geometry.indexBuffer, "uint16");
+          passEncoder.drawIndexed(mesh.geometry.indices.length, 1);
+        } else {
+          passEncoder.draw(mesh.geometry.vertices.length, 1);
+        }
       });
 
       passEncoder.end();

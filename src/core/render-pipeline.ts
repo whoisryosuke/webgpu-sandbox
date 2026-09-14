@@ -19,6 +19,7 @@ export interface RenderPipelineConfig {
 
 export function createRenderPipeline(
   config: RenderPipelineConfig,
+  vertexBufferLayout?: GPUVertexBufferLayout[],
 ): RenderPipelineCacheItem {
   const device = getDevice();
 
@@ -128,7 +129,7 @@ export function createRenderPipeline(
     vertex: {
       module: shaderModules.vertex,
       entryPoint: "vertex_main",
-      buffers: vertexBufferDescriptor,
+      buffers: vertexBufferLayout ?? vertexBufferDescriptor,
     },
     fragment: {
       module: shaderModules.fragment,

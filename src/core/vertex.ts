@@ -34,7 +34,7 @@ export function createVertexBufferData(vertices: Vertex[]) {
 
 // Setup "shape" of vertex (aka what data we're packing into each point of a mesh)
 // Should match the structure of `Vertex` above
-export const vertexBufferDescriptor: GPUVertexState["buffers"] = [
+export const vertexBufferDescriptor: GPUVertexBufferLayout[] = [
   {
     attributes: [
       // Position
