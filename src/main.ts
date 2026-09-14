@@ -45,14 +45,14 @@ const MUSIC_KEY_MAP: KeyboardMusicInputMap = {
 };
 
 const renderCallback = (props: RenderProps) => {
-  const speed = 100;
+  const speed = 0.001;
   props.meshes[0].uniforms.uniforms.scale.x =
-    1 * Math.sin(props.timestamp * speed);
+    1 * ((Math.sin(props.timestamp * speed) + 1.1) / 2);
   // props.meshes[1].uniforms.uniforms.scale.y += 0.01;
   // props.meshes[1].uniforms.uniforms.position.x += 0.01;
   // props.meshes[1].uniforms.uniforms.position.y += 0.01;
   // props.meshes[1].uniforms.uniforms.position.z += 0.01;
-  // props.meshes[1].uniforms.setUniforms();
+  props.meshes[0].uniforms.setUniforms();
 
   // const input = musicStore.getState();
   // // Piano keys
