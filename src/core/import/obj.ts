@@ -118,7 +118,7 @@ function parseRGBParts(parts: string[]) {
  */
 export async function loadMaterialLibrary(
   materialFilename: string,
-  objPath: string
+  objPath: string,
 ) {
   // OBJ provides material file name, but we need to grab it from correct folder
   // which we assume is same folder as OBJ file
@@ -181,7 +181,7 @@ export async function loadMaterialLibrary(
         console.log(
           "specularity",
           material.specularAmount,
-          material.specularAmount / 1000
+          material.specularAmount / 1000,
         );
         break;
       case "d": // Specular shininess
@@ -254,7 +254,7 @@ export async function importObj(
   url: string,
   device: GPUDevice,
   renderPipeline: GPURenderPipeline,
-  sampler: GPUSampler
+  sampler: GPUSampler,
 ) {
   const objString = await fetchTextFile(url);
 
@@ -355,7 +355,7 @@ export async function importObj(
           // Didn't get enough values? Let user know OBJ is malformed possibly
           if (indices.length < 3) {
             console.error(
-              `[OBJ] Malformed face line: ${trimmedLine}.  Skipping face.`
+              `[OBJ] Malformed face line: ${trimmedLine}.  Skipping face.`,
             );
             return;
           }
@@ -378,12 +378,16 @@ export async function importObj(
         // console.log("[OBJ] Loading material file...", materialLibPath, objPath);
         const objMaterials = await loadMaterialLibrary(
           materialLibPath,
-          objPath
+          objPath,
         );
 
         objMaterials.forEach((objMaterial) => {
           // Convert OBJ material to standard renderer material
-          const material = new Material(device, objMaterial.name);
+          const material = new Material(
+            device,
+            objMaterial.name,
+            renderPipeline,
+          );
 
           // Setup uniform data with material properties
           const uniforms: MaterialUniform = {
@@ -412,7 +416,7 @@ export async function importObj(
               device,
               objMaterial.textures.diffuse,
               sampler,
-              "diffuse"
+              "diffuse",
             );
           } else {
             material.createDefaultTexture(device, sampler);

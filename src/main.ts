@@ -45,30 +45,33 @@ const MUSIC_KEY_MAP: KeyboardMusicInputMap = {
 };
 
 const renderCallback = (props: RenderProps) => {
-  // props.meshes[1].uniforms.uniforms.scale.x += 0.01;
+  const speed = 100;
+  props.meshes[0].uniforms.uniforms.scale.x =
+    1 * Math.sin(props.timestamp * speed);
   // props.meshes[1].uniforms.uniforms.scale.y += 0.01;
   // props.meshes[1].uniforms.uniforms.position.x += 0.01;
   // props.meshes[1].uniforms.uniforms.position.y += 0.01;
   // props.meshes[1].uniforms.uniforms.position.z += 0.01;
   // props.meshes[1].uniforms.setUniforms();
 
-  const input = musicStore.getState();
-  // Piano keys
-  props.meshes.forEach((pianoMesh) => {
-    const name = pianoMesh.geometry.name;
-    if (!name.includes("WhiteKey") && !name.includes("BlackKey")) return;
-    const pianoKey = name.split(".")[1];
+  // const input = musicStore.getState();
+  // // Piano keys
+  // props.meshes.forEach((pianoMesh) => {
+  //   const name = pianoMesh.geometry.name;
+  //   if (!name.includes("WhiteKey") && !name.includes("BlackKey")) return;
+  //   const pianoKey = name.split(".")[1];
 
-    const midiKey = Midi.toMidi(`${pianoKey}4`);
-    const pressed = midiKey ? input[midiKey].pressed : false;
+  //   const midiKey = Midi.toMidi(`${pianoKey}4`);
+  //   const pressed = midiKey ? input[midiKey].pressed : false;
 
-    pianoMesh.uniforms.uniforms.position.y = pressed ? -0.05 : 0;
-    pianoMesh.uniforms.setUniforms();
-  });
+  //   pianoMesh.uniforms.uniforms.position.y = pressed ? -0.05 : 0;
+  //   pianoMesh.uniforms.setUniforms();
+  // });
 };
 
 async function main() {
   const renderer = new WebGPURenderer();
+
   const input = new InputManager();
 
   // Setup keyboard
@@ -89,6 +92,8 @@ async function main() {
   });
 
   await renderer.init();
+  // renderer.createCube();
+  await renderer.loadObj();
 
   renderer.render(renderCallback);
 }

@@ -124,6 +124,7 @@ export function createRenderPipeline(
 
   // Render pipeline
   const pipelineDescriptor: GPURenderPipelineDescriptor = {
+    label: config.name ?? simpleRandomHash(),
     vertex: {
       module: shaderModules.vertex,
       entryPoint: "vertex_main",

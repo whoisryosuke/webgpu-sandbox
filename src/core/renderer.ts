@@ -285,6 +285,15 @@ export default class WebGPURenderer {
     return mesh;
   }
 
+  createCube(renderPipelineName?: string, scale: number = 0.1) {
+    const pipelineKey = renderPipelineName ?? "Default";
+    const defaultPipeline = this.getRenderPipeline(pipelineKey);
+
+    const cubeMesh = generateCube(this.device, defaultPipeline.pipeline, scale);
+
+    this.meshes.push(cubeMesh);
+  }
+
   render(callback: (props: RenderProps) => void) {
     const render = (timestamp: number) => {
       // Check if we have required element for rendering

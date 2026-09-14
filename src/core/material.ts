@@ -78,6 +78,7 @@ export default class Material {
     this.name = name;
 
     // Get the appropriate render pipeline from store
+    console.log("material got render pipe", renderPipeline);
     this.renderPipeline = renderPipeline;
 
     // Create uniforms for material (aka properties shared to shader)
