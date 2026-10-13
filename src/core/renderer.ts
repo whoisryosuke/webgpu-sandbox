@@ -7,6 +7,7 @@ import { importObj, loadObj } from "./import/obj";
 import { createTexture, createTextureBindGroup, loadImage } from "./texture";
 import { generateCube } from "../primitives/cube";
 import Geometry, {
+  CreateGeometryData,
   generateIndexBufferData,
   generateVertexBufferData,
 } from "./geometry";
@@ -266,6 +267,7 @@ export default class WebGPURenderer {
     normals: Vector3D[],
     uvs: Vector2D[],
     meshIndices: number[],
+    customVertexBufferDescriptor?: GPUVertexBufferLayout[],
   ) {
     // Create "geometry" containing the vertex + index data
     const geometry = new Geometry(this.device, {
@@ -273,6 +275,39 @@ export default class WebGPURenderer {
       vertices: generateVertexBufferData(positions, normals, uvs),
       indices: generateIndexBufferData(meshIndices),
     });
+
+    return geometry;
+  }
+
+  /**
+   * Creates `Geometry` with custom vertex layout and appropriate buffers using provided 3D data.
+   * @param name
+   * @param positions
+   * @param normals
+   * @param uvs
+   * @param meshIndices
+   * @returns
+   */
+  createCustomGeometry(
+    name: string,
+    vertices: Float32Array<ArrayBufferLike>,
+    customVertexBufferDescriptor: GPUVertexBufferLayout[],
+    meshIndices?: number[],
+  ) {
+    const geometryData = {
+      name: name,
+      vertices,
+    } as CreateGeometryData;
+    if (meshIndices) {
+      geometryData.indices = generateIndexBufferData(meshIndices);
+    }
+
+    // Create "geometry" containing the vertex + index data
+    const geometry = new Geometry(
+      this.device,
+      geometryData,
+      customVertexBufferDescriptor,
+    );
 
     return geometry;
   }

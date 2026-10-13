@@ -95,6 +95,9 @@ async function main() {
   // renderer.createCube();
   await renderer.loadObj();
 
+  // Custom geometry + material
+  // const customGeometry = renderer.createCustomGeometry("Custom Mesh", );
+
   renderer.render(renderCallback);
 }
 

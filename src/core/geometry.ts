@@ -1,6 +1,12 @@
 import Material from "./material";
 import { Vector2D, Vector3D, vertexBufferDescriptor } from "./vertex";
 
+export type CreateGeometryData = {
+  vertices: Float32Array;
+  indices?: Uint16Array;
+  name?: string;
+};
+
 export function generateVertexBufferData(
   positions: Vector3D[],
   normals: Vector3D[],
@@ -57,11 +63,7 @@ export default class Geometry {
 
   constructor(
     device: GPUDevice,
-    data: {
-      vertices: Float32Array;
-      indices?: Uint16Array;
-      name?: string;
-    },
+    data: CreateGeometryData,
     customVertexBufferDescriptor?: GPUVertexBufferLayout[],
   ) {
     this.name = data.name ?? "Mesh";
