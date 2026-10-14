@@ -95,4 +95,12 @@ export default class Geometry {
       device.queue.writeBuffer(this.indexBuffer, 0, this.indices.buffer);
     }
   }
+
+  /**
+   * Dispose of GPU buffers.
+   */
+  dispose() {
+    this.vertexBuffer?.destroy();
+    this.indexBuffer?.destroy();
+  }
 }

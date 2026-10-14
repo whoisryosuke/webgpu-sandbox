@@ -13,7 +13,7 @@ export type MaterialFlags = {
   debugColor: boolean;
 };
 
-export interface MaterialUniform extends UniformsDataStructure {
+export type MaterialUniform = UniformsDataStructure & {
   /**
    * RGBA color. Alpha represents opacity of object.
    */
@@ -22,7 +22,7 @@ export interface MaterialUniform extends UniformsDataStructure {
    * 0 = No, 1 = Yes
    */
   flags: MaterialFlags;
-}
+};
 
 export const createMaterialUniform = (): MaterialUniform => ({
   // General properties
@@ -48,6 +48,12 @@ export const createMaterialUniform = (): MaterialUniform => ({
 
 export type MaterialTextureMap = Partial<{
   diffuse: GPUTexture;
+  normal: GPUTexture;
+  specular: GPUTexture;
+  emissive: GPUTexture;
+  roughness: GPUTexture;
+  metallic: GPUTexture;
+  ao: GPUTexture;
 }>;
 
 export type MaterialTextureTypes = keyof MaterialTextureMap;
@@ -135,5 +141,13 @@ export default class Material {
     );
 
     this.createTextureBindGroup(device, sampler, texture);
+  }
+
+  /**
+   * Dispose of GPU resources used by this material.
+   */
+  dispose() {
+    this.uniforms.dispose();
+    Object.values(this.textures).forEach((texture) => texture?.destroy());
   }
 }

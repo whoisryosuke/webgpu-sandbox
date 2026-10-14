@@ -18,10 +18,12 @@ const MOUSE_BUTTON_MAP: Record<number, NavigationModes> = {
   // Left click
   0: "rotate",
   // Middle click
-  1: "pan",
+ 1: "pan",
   // Right click
   2: "zoom",
 };
+
+export type CameraControlMode = "orbit" | "fps" | "pan" | "none";
 
 export default class Camera {
   device?: GPUDevice;
@@ -53,6 +55,9 @@ export default class Camera {
   // The "up" vector (Y-up)
   up = vec3.create(0, 1, 0);
   fov = Math.PI / 4;
+
+  // Control mode
+  controlMode: CameraControlMode = "orbit";
 
   // Navigation Logic
   navigating = false;
@@ -355,6 +360,48 @@ export default class Camera {
     canvas.addEventListener("mouseup", this.handleEndMouseNav);
     canvas.addEventListener("mousemove", this.handleMouseNavigation);
     canvas.addEventListener("wheel", this.handleMouseScroll);
+  }
+
+  /**
+   * Set the camera control mode.
+   * @param mode - "orbit" (default), "fps", "pan", or "none"
+   */
+  setControlMode(mode: CameraControlMode): this {
+    this.controlMode = mode;
+    return this;
+  }
+
+  /**
+   * Set camera position with x, y, z coordinates.
+   */
+  setPosition(x: number, y: number, z: number): this {
+    this.position = { x, y, z };
+    this.updatePosition();
+    return this;
+  }
+
+  /**
+   * Set camera target with x, y, z coordinates.
+   */
+  setTarget(x: number, y: number, z: number): this {
+    this.target = { x, y, z };
+    this.updateTarget();
+    return this;
+  }
+
+  /**
+   * Clone this camera with the same state.
+   */
+  clone(): Camera {
+    const cam = new Camera(this.device!);
+    cam.position = { ...this.position };
+    cam.target = { ...this.target };
+    cam.rotation = { ...this.rotation };
+    cam.fov = this.fov;
+    cam.controlMode = this.controlMode;
+    cam.updatePosition();
+    cam.updateTarget();
+    return cam;
   }
 
   /**

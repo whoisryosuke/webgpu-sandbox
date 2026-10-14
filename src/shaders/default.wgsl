@@ -11,6 +11,10 @@ struct VertexOut {
 struct GlobalUniforms {
   time: f32,
   light_position: vec3<f32>,
+  light_direction: vec3<f32>,
+  // rgb = light color, w = light intensity
+  light_color: vec4<f32>,
+  ambient_intensity: f32,
 }
 
 struct LocalUniforms {
@@ -93,8 +97,9 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
   // return vec4f(0.0,0.0,material.texture, 1.0);
 
   // Lighting
-  // Use normal for simple lighting-based coloring
-  var light_amount = max(dot(fragData.normal, fragData.light_direction), 0.3); // Minimum ambient
+  // Use normal for simple lighting-based coloring.
+  // Minimum comes from the ambient light so scenes are never pitch black.
+  var light_amount = max(dot(fragData.normal, fragData.light_direction), globals.ambient_intensity);
 
 
   // Calculate specularity
@@ -110,8 +115,10 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
   // Debug: See effect
   // specular = pow(specular, specular_multiplier);
 
+  // Tint by the directional light color (default white = no change).
+  let light_tint = vec4f(globals.light_color.rgb * globals.light_color.w, 1.0);
   if(material.flags.x > 0.5) {
-    return textureColor * light_amount + specular;
+    return textureColor * light_amount * light_tint + specular;
   }
   let uv_color_with_lighting = vec3f(abs(fragData.uv), 1.0) * light_amount + specular;
   return vec4f(uv_color_with_lighting, 1.0);

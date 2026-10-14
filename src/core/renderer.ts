@@ -4,8 +4,21 @@ import { mat4, vec4 } from "wgpu-matrix";
 import ParticleSystem from "./particle-system";
 import AudioPlayer from "./audio";
 import { importObj, loadObj } from "./import/obj";
-import { createTexture, createTextureBindGroup, loadImage } from "./texture";
+import {
+  createTexture,
+  createTextureBindGroup,
+  loadImage,
+  createSampler,
+  createTextureFromUrl,
+  SamplerOptions,
+  TextureOptions,
+} from "./texture";
 import { generateCube } from "../primitives/cube";
+import { generatePlane } from "../primitives/plane";
+import { generateSphere } from "../primitives/sphere";
+import { generateCylinder } from "../primitives/cylinder";
+import { generateCone } from "../primitives/cone";
+import { generateTorus } from "../primitives/torus";
 import Geometry, {
   CreateGeometryData,
   generateIndexBufferData,
@@ -13,7 +26,7 @@ import Geometry, {
 } from "./geometry";
 import { UNIFORM_BIND_GROUP_LAYOUT_IDS } from "./constants/uniforms";
 import { Uniforms, UniformsDataStructure } from "./uniforms";
-import { Vector2D, Vector3D, vertexBufferDescriptor } from "./vertex";
+import { Vector2D, Vector3D, Vector4D } from "./vertex";
 import { Mesh } from "./mesh";
 import Material from "./material";
 import { getDevice, requestWebGPUDevice } from "./device";
@@ -24,6 +37,13 @@ import {
   RenderPipelineConfig,
 } from "./render-pipeline";
 import rendererStore from "./store/renderer";
+import ComputePipeline, {
+  ComputeBufferBinding,
+  ComputePipelineConfig,
+} from "./compute-pipeline";
+import Light from "./lights/light";
+import DirectionalLight from "./lights/directional-light";
+import AmbientLight from "./lights/ambient-light";
 
 const PIANO_KEY_SPACING = {
   C: 0,
@@ -43,12 +63,25 @@ const PIANO_KEY_SPACING = {
 interface GlobalUniforms extends UniformsDataStructure {
   time: number;
   lightPosition: Vector3D;
+  lightDirection: Vector3D;
+  /**
+   * rgb = light color, w = light intensity.
+   */
+  lightColor: Vector4D;
+  ambientIntensity: number;
 }
 
 export type RenderProps = {
   timestamp: number;
   meshes: Mesh[];
   materials: Record<string, Material>;
+  commandEncoder: GPUCommandEncoder;
+};
+
+export type RenderStats = {
+  fps: number;
+  frameCount: number;
+  deltaTime: number;
 };
 
 export default class WebGPURenderer {
@@ -70,12 +103,41 @@ export default class WebGPURenderer {
   frameCount: number = 0;
   prevTime: number = 0;
 
+  // Animation frame management
+  private animationFrameId: number | null = null;
+  private renderCallback: ((props: RenderProps) => void) | null = null;
+
+  // FPS tracking
+  private fpsFrames: number = 0;
+  private fpsTime: number = 0;
+  private currentFps: number = 0;
+
   // Scene
   meshes: Mesh[] = [];
   materials: Record<string, Material> = {};
   pipelines: Map<string, RenderPipelineCacheItem> = new Map();
+  computePipelines: Map<string, ComputePipeline> = new Map();
+  lights: Map<string, Light> = new Map();
+
+  // Resize observer
+  private resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * Check if the browser supports WebGPU.
+   * @returns true if WebGPU is available
+   */
+  static isWebGPUSupported(): boolean {
+    return typeof navigator !== "undefined" && "gpu" in navigator;
+  }
 
   async init() {
+    // Check WebGPU support
+    if (!WebGPURenderer.isWebGPUSupported()) {
+      throw new Error(
+        "WebGPU is not supported in this browser. Please use a browser with WebGPU support (Chrome 113+, Edge 113+, Firefox 141+, or Safari 26+).",
+      );
+    }
+
     // See if user supports WebGPU and store "device" in global store
     await requestWebGPUDevice();
     // Grab the device from the global store
@@ -138,6 +200,10 @@ export default class WebGPURenderer {
       "Default",
       defaultRenderPipeline.pipeline,
     );
+    // Default shader samples a texture at group(3), so every material
+    // needs a texture bind group. Give the default material a 1x1 white
+    // texture until the user assigns a real one.
+    defaultMaterial.createDefaultTexture(this.device, this.sampler);
 
     // Save material to cache
     this.materials = {
@@ -182,6 +248,18 @@ export default class WebGPURenderer {
         y: 3,
         z: 3,
       },
+      lightDirection: {
+        x: 0,
+        y: -1,
+        z: -1,
+      },
+      lightColor: {
+        x: 1,
+        y: 1,
+        z: 1,
+        w: 1,
+      },
+      ambientIntensity: 0.3,
     };
 
     // Global Uniforms
@@ -203,6 +281,10 @@ export default class WebGPURenderer {
 
     // Create depth and MSAA texture
     this.createCanvasTextures();
+
+    // Create default lighting
+    this.createDirectionalLight("DefaultDirectional", { x: 0, y: -1, z: -1 });
+    this.createAmbientLight("DefaultAmbient", 0.3);
 
     // Create particle system
     // this.particleSystem = new ParticleSystem(
@@ -349,6 +431,167 @@ export default class WebGPURenderer {
   }
 
   /**
+   * Creates a plane `Mesh` and adds to scene.
+   * @param width - Plane width
+   * @param height - Plane height
+   * @param renderPipelineName
+   */
+  createPlane(
+    width: number = 1,
+    height: number = 1,
+    renderPipelineName?: string,
+  ) {
+    const pipelineKey = renderPipelineName ?? "Default";
+    const defaultPipeline = this.getRenderPipeline(pipelineKey);
+
+    const planeMesh = generatePlane(
+      this.device,
+      defaultPipeline.pipeline,
+      width,
+      height,
+    );
+
+    this.meshes.push(planeMesh);
+  }
+
+  /**
+   * Creates a sphere `Mesh` and adds to scene.
+   * @param radius - Sphere radius
+   * @param widthSegments - Number of horizontal segments
+   * @param heightSegments - Number of vertical segments
+   * @param renderPipelineName
+   */
+  createSphere(
+    radius: number = 1,
+    widthSegments: number = 32,
+    heightSegments: number = 16,
+    renderPipelineName?: string,
+  ) {
+    const pipelineKey = renderPipelineName ?? "Default";
+    const defaultPipeline = this.getRenderPipeline(pipelineKey);
+
+    const sphereMesh = generateSphere(
+      this.device,
+      defaultPipeline.pipeline,
+      radius,
+      widthSegments,
+      heightSegments,
+    );
+
+    this.meshes.push(sphereMesh);
+  }
+
+  /**
+   * Creates a cylinder `Mesh` and adds to scene.
+   * @param radiusTop - Top radius
+   * @param radiusBottom - Bottom radius
+   * @param height - Cylinder height
+   * @param radialSegments - Number of segments around the circumference
+   * @param renderPipelineName
+   */
+  createCylinder(
+    radiusTop: number = 1,
+    radiusBottom: number = 1,
+    height: number = 2,
+    radialSegments: number = 32,
+    renderPipelineName?: string,
+  ) {
+    const pipelineKey = renderPipelineName ?? "Default";
+    const defaultPipeline = this.getRenderPipeline(pipelineKey);
+
+    const cylinderMesh = generateCylinder(
+      this.device,
+      defaultPipeline.pipeline,
+      radiusTop,
+      radiusBottom,
+      height,
+      radialSegments,
+    );
+
+    this.meshes.push(cylinderMesh);
+  }
+
+  /**
+   * Creates a cone `Mesh` and adds to scene.
+   * @param radius - Base radius
+   * @param height - Cone height
+   * @param radialSegments - Number of segments around the circumference
+   * @param renderPipelineName
+   */
+  createCone(
+    radius: number = 1,
+    height: number = 2,
+    radialSegments: number = 32,
+    renderPipelineName?: string,
+  ) {
+    const pipelineKey = renderPipelineName ?? "Default";
+    const defaultPipeline = this.getRenderPipeline(pipelineKey);
+
+    const coneMesh = generateCone(
+      this.device,
+      defaultPipeline.pipeline,
+      radius,
+      height,
+      radialSegments,
+    );
+
+    this.meshes.push(coneMesh);
+  }
+
+  /**
+   * Creates a torus `Mesh` and adds to scene.
+   * @param radius - Major radius
+   * @param tube - Minor radius (tube thickness)
+   * @param radialSegments - Number of segments around the tube
+   * @param tubularSegments - Number of segments around the torus
+   * @param renderPipelineName
+   */
+  createTorus(
+    radius: number = 1,
+    tube: number = 0.4,
+    radialSegments: number = 16,
+    tubularSegments: number = 48,
+    renderPipelineName?: string,
+  ) {
+    const pipelineKey = renderPipelineName ?? "Default";
+    const defaultPipeline = this.getRenderPipeline(pipelineKey);
+
+    const torusMesh = generateTorus(
+      this.device,
+      defaultPipeline.pipeline,
+      radius,
+      tube,
+      radialSegments,
+      tubularSegments,
+    );
+
+    this.meshes.push(torusMesh);
+  }
+
+  /**
+   * Load a texture from a URL.
+   * @param url - The image URL
+   * @param options - Texture creation options
+   * @returns The created GPUTexture
+   */
+  async loadTexture(
+    url: string,
+    options?: TextureOptions,
+  ): Promise<GPUTexture> {
+    const image = await loadImage(url);
+    return createTexture(this.device, image, options);
+  }
+
+  /**
+   * Create a sampler with custom options.
+   * @param options - Sampler configuration
+   * @returns The created GPUSampler
+   */
+  createSamplerWithOptions(options?: SamplerOptions): GPUSampler {
+    return createSampler(this.device, options);
+  }
+
+  /**
    * Loads custom shader as render pipeline + material into scene.
    * @param shaderName - The key/name of shader. Use it later to attach to mesh.
    * @param shaderCode - The WGSL shader code with vertex and/or fragment
@@ -379,137 +622,413 @@ export default class WebGPURenderer {
     this.materials[shaderName] = customMaterial;
   }
 
-  render(callback: (props: RenderProps) => void) {
-    const render = (timestamp: number) => {
-      // Check if we have required element for rendering
-      if (
-        !this.device ||
-        !this.camera ||
-        !this.multisampleTexture ||
-        !this.depthTexture
-      )
-        return;
-
-      // Get latest waveform data
-      // if (waveform) this.particleSystem?.updateAudioBuffer(waveform.buffer);
-      this.camera.loop();
-
-      // Ideally you'd set this during the `render()` lifecycle (since canvas may change)
-      // aka example of a "dynamic" uniform
-      this.globalUniforms.uniforms.time = timestamp;
-      this.globalUniforms.setUniforms();
-
-      // Calculate delta time in seconds
-      const deltaTime = (timestamp - this.prevTime) / 1000;
-      this.prevTime = timestamp;
-
-      // Render callback
-      // Let's user mutate scene before render
-      const renderProps: RenderProps = {
-        timestamp,
-        meshes: this.meshes,
-        materials: this.materials,
-      };
-      callback(renderProps);
-
-      // console.log("time / frame", timeUniformData, frameCount, uniformValues);
-
-      // Create command encoder (that runs render tasks)
-      const commandEncoder = this.device.createCommandEncoder();
-
-      // Compute shaders
-      // this.particleSystem?.compute(commandEncoder);
-
-      const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
-      const renderPassDescriptor: GPURenderPassDescriptor = {
-        colorAttachments: [
-          {
-            loadValue: [0.5, 0, 1, 1],
-            loadOp: "clear",
-            storeOp: "store",
-            view: this.multisampleTexture.createView(),
-            resolveTarget: this.context.getCurrentTexture().createView(),
-          } as GPURenderPassColorAttachment,
-        ],
-        depthStencilAttachment: {
-          view: this.depthTexture.createView(),
-          depthClearValue: 1.0,
-          depthLoadOp: "clear",
-          depthStoreOp: "store",
-        },
-      };
-      const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-
-      // Render particles
-      // this.particleSystem?.render(passEncoder);
-
-      // Update uniforms
-      // this.device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-      // this.camera.animateRotation(deltaTime);
-      this.camera.updateRotation();
-      // this.device.queue.writeBuffer(
-      //   instanceUniformBuffer,
-      //   0,
-      //   instanceUniformValue
-      // );
-
-      // Render
-      // Loop over each mesh and render it
-      this.meshes.forEach((mesh) => {
-        // Get mesh material and update material buffers with new data
-        const material = this.materials[mesh.material];
-        // console.log("[RENDERING] material", mesh.material, material);
-
-        // Set the pipeline to the match the material
-        passEncoder.setPipeline(material.renderPipeline);
-        passEncoder.setBindGroup(0, this.globalUniforms.uniformBindGroup);
-
-        // console.log(
-        //   "[RENDERING] mesh:",
-        //   mesh.geometry.name,
-        //   mesh.uniforms.uniforms.position
-        // );
-
-        material.uniforms.updateUniforms();
-
-        // Set bind groups (uniforms, texture, etc)
-        passEncoder.setBindGroup(
-          UNIFORM_BIND_GROUP_LAYOUT_IDS["locals"],
-          mesh.uniforms.uniformBindGroup,
-        );
-        passEncoder.setBindGroup(
-          UNIFORM_BIND_GROUP_LAYOUT_IDS["material"],
-          material.uniforms.uniformBindGroup,
-        );
-        if (material && material.textureBindGroup) {
-          passEncoder.setBindGroup(
-            UNIFORM_BIND_GROUP_LAYOUT_IDS["texture"],
-            material.textureBindGroup,
-          );
-        }
-
-        // Set geometry buffers (vertex + index)
-        passEncoder.setVertexBuffer(0, mesh.geometry.vertexBuffer);
-
-        // Draw using indices or directly using vertices
-        if (mesh.geometry.indices && mesh.geometry.indexBuffer) {
-          passEncoder.setIndexBuffer(mesh.geometry.indexBuffer, "uint16");
-          passEncoder.drawIndexed(mesh.geometry.indices.length, 1);
-        } else {
-          passEncoder.draw(mesh.geometry.vertices.length, 1);
-        }
-      });
-
-      passEncoder.end();
-      // Finish rendering
-      this.device.queue.submit([commandEncoder.finish()]);
-
-      // Rinse repeat
-      this.frameCount++;
-      requestAnimationFrame(render);
+  /**
+   * Create a compute pipeline.
+   * @param name - Key/name for the compute pipeline
+   * @param shaderCode - WGSL compute shader code
+   * @param bufferBindings - Buffer bindings for the shader
+   * @returns The created ComputePipeline
+   */
+  createComputeShader(
+    name: string,
+    shaderCode: string,
+    bufferBindings: ComputeBufferBinding[],
+  ): ComputePipeline {
+    const config: ComputePipelineConfig = {
+      shaderCode,
+      bufferBindings,
+      label: name,
     };
+    const computePipeline = new ComputePipeline(this.device, config);
+    this.computePipelines.set(name, computePipeline);
+    return computePipeline;
+  }
 
-    requestAnimationFrame(render);
+  /**
+   * Get a compute pipeline by name.
+   * @param name - The name of the compute pipeline
+   * @returns The ComputePipeline or undefined
+   */
+  getComputePipeline(name: string): ComputePipeline | undefined {
+    return this.computePipelines.get(name);
+  }
+
+  /**
+   * Update a shader with new WGSL code (hot-reload).
+   * @param name - The name of the shader to update
+   * @param newShaderCode - New WGSL shader code
+   */
+  updateShader(name: string, newShaderCode: string) {
+    const existing = this.pipelines.get(name);
+    if (!existing) {
+      console.warn(`[WebGPURenderer] Shader "${name}" not found.`);
+      return;
+    }
+
+    const config: RenderPipelineConfig = {
+      shader: newShaderCode,
+      name,
+    };
+    const newPipeline = createRenderPipeline(config);
+    this.pipelines.set(name, newPipeline);
+
+    // Update materials that use this pipeline
+    Object.values(this.materials).forEach((material) => {
+      if (material.renderPipeline === existing.pipeline) {
+        material.renderPipeline = newPipeline.pipeline;
+      }
+    });
+  }
+
+  /**
+   * Add a light to the scene.
+   * Light properties are packed into the shared globals uniform each frame.
+   * @param name - Key/name for the light
+   * @param light - The light to add
+   * @returns this (for chaining)
+   */
+  addLight(name: string, light: Light): this {
+    this.lights.set(name, light);
+    return this;
+  }
+
+  /**
+   * Remove a light from the scene.
+   * @param name - The name of the light to remove
+   * @returns this (for chaining)
+   */
+  removeLight(name: string): this {
+    this.lights.delete(name);
+    return this;
+  }
+
+  /**
+   * Get a light by name.
+   * @param name - The name of the light
+   * @returns The Light or undefined
+   */
+  getLight(name: string): Light | undefined {
+    return this.lights.get(name);
+  }
+
+  /**
+   * Create and add a directional light.
+   * @param name - Key/name for the light
+   * @param direction - Light direction
+   * @returns The created DirectionalLight
+   */
+  createDirectionalLight(
+    name: string = "DirectionalLight",
+    direction: Vector3D = { x: 0, y: -1, z: 0 },
+  ): DirectionalLight {
+    const light = new DirectionalLight(direction);
+    this.addLight(name, light);
+    return light;
+  }
+
+  /**
+   * Create and add an ambient light.
+   * @param name - Key/name for the light
+   * @param intensity - Light intensity
+   * @returns The created AmbientLight
+   */
+  createAmbientLight(
+    name: string = "AmbientLight",
+    intensity: number = 0.3,
+  ): AmbientLight {
+    const light = new AmbientLight(intensity);
+    this.addLight(name, light);
+    return light;
+  }
+
+  /**
+   * Pack scene light properties into the shared globals uniform.
+   * Called each frame before the globals uniform is uploaded, so light
+   * mutations (e.g. `getLight("Sun").setColor(...)`) take effect
+   * without any extra work from the user.
+   */
+  syncLightsToGlobals() {
+    if (!this.globalUniforms) return;
+
+    // First directional light wins for direction + color.
+    for (const light of this.lights.values()) {
+      if (light instanceof DirectionalLight) {
+        this.globalUniforms.uniforms.lightDirection = { ...light.direction };
+        this.globalUniforms.uniforms.lightColor = {
+          x: light.color.x,
+          y: light.color.y,
+          z: light.color.z,
+          w: light.intensity,
+        };
+        break;
+      }
+    }
+
+    // First ambient light wins for the ambient floor.
+    for (const light of this.lights.values()) {
+      if (light instanceof AmbientLight) {
+        this.globalUniforms.uniforms.ambientIntensity = light.intensity;
+        break;
+      }
+    }
+  }
+
+  /**
+   * Start the continuous render loop.
+   * @param callback - Called each frame with scene data for mutation before render
+   */
+  render(callback: (props: RenderProps) => void) {
+    this.renderCallback = callback;
+    this.startLoop();
+  }
+
+  /**
+   * Start the animation frame loop (internal).
+   */
+  private startLoop() {
+    const loop = (timestamp: number) => {
+      this.renderFrame(timestamp);
+      this.animationFrameId = requestAnimationFrame(loop);
+    };
+    this.animationFrameId = requestAnimationFrame(loop);
+  }
+
+  /**
+   * Stop the animation frame loop.
+   */
+  stop() {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  }
+
+  /**
+   * Render a single frame without starting the loop.
+   * Useful for render-on-demand workflows.
+   */
+  renderOnce() {
+    if (!this.renderCallback) {
+      console.warn("[WebGPURenderer] No render callback set. Call render() first.");
+      return;
+    }
+    this.renderFrame(performance.now());
+  }
+
+  /**
+   * Internal: render a single frame.
+   */
+  private renderFrame(timestamp: number) {
+    // Check if we have required element for rendering
+    if (
+      !this.device ||
+      !this.camera ||
+      !this.multisampleTexture ||
+      !this.depthTexture
+    )
+      return;
+
+    this.camera.loop();
+
+    // Update time uniform + pack latest light properties into globals
+    this.globalUniforms.uniforms.time = timestamp;
+    this.syncLightsToGlobals();
+    this.globalUniforms.setUniforms();
+
+    // Calculate delta time in seconds
+    const deltaTime = (timestamp - this.prevTime) / 1000;
+    this.prevTime = timestamp;
+
+    // FPS tracking
+    this.fpsFrames++;
+    this.fpsTime += deltaTime;
+    if (this.fpsTime >= 1.0) {
+      this.currentFps = this.fpsFrames / this.fpsTime;
+      this.fpsFrames = 0;
+      this.fpsTime = 0;
+    }
+
+    // Render callback
+    const commandEncoder = this.device.createCommandEncoder();
+    const renderProps: RenderProps = {
+      timestamp,
+      meshes: this.meshes,
+      materials: this.materials,
+      commandEncoder,
+    };
+    this.renderCallback?.(renderProps);
+
+    const renderPassDescriptor: GPURenderPassDescriptor = {
+      colorAttachments: [
+        {
+          loadValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
+          loadOp: "clear",
+          storeOp: "store",
+          view: this.multisampleTexture.createView(),
+          resolveTarget: this.context.getCurrentTexture().createView(),
+        } as GPURenderPassColorAttachment,
+      ],
+      depthStencilAttachment: {
+        view: this.depthTexture.createView(),
+        depthClearValue: 1.0,
+        depthLoadOp: "clear",
+        depthStoreOp: "store",
+      },
+    };
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+
+    this.camera.updateRotation();
+
+    // Render each visible mesh
+    this.meshes.forEach((mesh) => {
+      if (mesh.visible === false) return;
+
+      const material = this.materials[mesh.material];
+      if (!material) return;
+
+      passEncoder.setPipeline(material.renderPipeline);
+      passEncoder.setBindGroup(0, this.globalUniforms.uniformBindGroup);
+
+      material.uniforms.updateUniforms();
+
+      passEncoder.setBindGroup(
+        UNIFORM_BIND_GROUP_LAYOUT_IDS["locals"],
+        mesh.uniforms.uniformBindGroup,
+      );
+      passEncoder.setBindGroup(
+        UNIFORM_BIND_GROUP_LAYOUT_IDS["material"],
+        material.uniforms.uniformBindGroup,
+      );
+      if (material.textureBindGroup) {
+        passEncoder.setBindGroup(
+          UNIFORM_BIND_GROUP_LAYOUT_IDS["texture"],
+          material.textureBindGroup,
+        );
+      }
+
+      passEncoder.setVertexBuffer(0, mesh.geometry.vertexBuffer);
+
+      if (mesh.geometry.indices && mesh.geometry.indexBuffer) {
+        passEncoder.setIndexBuffer(mesh.geometry.indexBuffer, "uint16");
+        passEncoder.drawIndexed(mesh.geometry.indices.length, 1);
+      } else {
+        passEncoder.draw(mesh.geometry.vertices.length, 1);
+      }
+    });
+
+    passEncoder.end();
+    this.device.queue.submit([commandEncoder.finish()]);
+
+    this.frameCount++;
+  }
+
+  /**
+   * Add a mesh to the scene.
+   * @param mesh - The mesh to add
+   * @returns this (for chaining)
+   */
+  add(mesh: Mesh): this {
+    this.meshes.push(mesh);
+    return this;
+  }
+
+  /**
+   * Remove a mesh from the scene.
+   * @param mesh - The mesh to remove
+   * @returns this (for chaining)
+   */
+  remove(mesh: Mesh): this {
+    const index = this.meshes.indexOf(mesh);
+    if (index !== -1) {
+      this.meshes.splice(index, 1);
+    }
+    return this;
+  }
+
+  /**
+   * Find a mesh by its geometry name.
+   * @param name - The geometry name to search for
+   * @returns The matching mesh, or undefined
+   */
+  getMeshByName(name: string): Mesh | undefined {
+    return this.meshes.find((mesh) => mesh.geometry.name === name);
+  }
+
+  /**
+   * Get render statistics.
+   * @returns Current FPS, frame count, and delta time
+   */
+  getStats(): RenderStats {
+    return {
+      fps: Math.round(this.currentFps),
+      frameCount: this.frameCount,
+      deltaTime: this.prevTime > 0 ? (performance.now() - this.prevTime) / 1000 : 0,
+    };
+  }
+
+  /**
+   * Resize the canvas and recreate GPU textures.
+   * @param width - New width in CSS pixels
+   * @param height - New height in CSS pixels
+   */
+  setSize(width: number, height: number) {
+    if (!this.canvas) return;
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.createCanvasTextures();
+    this.camera?.updateScreenSize(width, height);
+  }
+
+  /**
+   * Set the pixel ratio for the canvas backing store.
+   * @param ratio - Device pixel ratio (e.g., window.devicePixelRatio)
+   */
+  setPixelRatio(ratio: number) {
+    if (!this.canvas) return;
+    const width = this.canvas.clientWidth || this.canvas.width;
+    const height = this.canvas.clientHeight || this.canvas.height;
+    this.setSize(Math.floor(width * ratio), Math.floor(height * ratio));
+  }
+
+  /**
+   * Dispose of all GPU resources.
+   * Call this when the renderer is no longer needed.
+   */
+  dispose() {
+    this.stop();
+
+    // Disconnect resize observer
+    this.resizeObserver?.disconnect();
+
+    // Destroy textures
+    this.depthTexture?.destroy();
+    this.multisampleTexture?.destroy();
+
+    // Dispose meshes (geometry buffers + uniform buffers)
+    this.meshes.forEach((mesh) => mesh.dispose?.());
+
+    // Dispose materials
+    Object.values(this.materials).forEach((material) => material.dispose?.());
+
+    // Lights hold no GPU resources (packed into globals), just clear the map.
+
+    // Dispose compute pipelines
+    this.computePipelines.forEach((pipeline) => pipeline.dispose());
+
+    // Clear collections
+    this.meshes = [];
+    this.materials = {};
+    this.pipelines.clear();
+    this.lights.clear();
+    this.computePipelines.clear();
+
+    // Unconfigure context
+    this.context?.unconfigure();
+
+    this.device = null!;
+    this.context = null!;
+    this.depthTexture = null!;
+    this.multisampleTexture = null!;
   }
 
   getCanvas() {
@@ -574,7 +1093,7 @@ export default class WebGPURenderer {
   }
 
   setupResize() {
-    const observer = new ResizeObserver((entries) => {
+    this.resizeObserver = new ResizeObserver((entries) => {
       if (!this.device || !this.camera) return;
       for (const entry of entries) {
         const canvas = entry.target as HTMLCanvasElement;
@@ -596,7 +1115,7 @@ export default class WebGPURenderer {
     });
 
     let canvas = this.getCanvas();
-    observer.observe(canvas);
+    this.resizeObserver.observe(canvas);
   }
 
   preventRightClick() {

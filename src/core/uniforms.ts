@@ -237,4 +237,11 @@ export class Uniforms<UniformsObject extends UniformsDataStructure> {
         return parseFloat(value as string);
     }
   };
+
+  /**
+   * Dispose of GPU resources.
+   */
+  dispose() {
+    this.uniformBuffer?.destroy();
+  }
 }

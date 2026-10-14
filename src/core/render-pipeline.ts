@@ -15,6 +15,19 @@ export interface RenderPipelineConfig {
   fragment?: string;
   shader?: string;
   wireframe?: boolean;
+  /** Cull mode (default: "back") */
+  cullMode?: "none" | "front" | "back";
+  /** Enable depth writing (default: true) */
+  depthWriteEnabled?: boolean;
+  /** Depth comparison function (default: "less") */
+  depthCompare?: GPUCompareFunction;
+  /** Fragment target format (default: "bgra8unorm") */
+  format?: GPUTextureFormat;
+  /** Custom entry points */
+  entryPoint?: {
+    vertex?: string;
+    fragment?: string;
+  };
 }
 
 export function createRenderPipeline(
@@ -66,7 +79,7 @@ export function createRenderPipeline(
     entries: [
       {
         binding: 0,
-        visibility: GPUShaderStage.VERTEX,
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
         buffer: {
           type: "uniform",
         },
@@ -128,27 +141,27 @@ export function createRenderPipeline(
     label: config.name ?? simpleRandomHash(),
     vertex: {
       module: shaderModules.vertex,
-      entryPoint: "vertex_main",
+      entryPoint: config.entryPoint?.vertex ?? "vertex_main",
       buffers: vertexBufferLayout ?? vertexBufferDescriptor,
     },
     fragment: {
       module: shaderModules.fragment,
-      entryPoint: "fragment_main",
+      entryPoint: config.entryPoint?.fragment ?? "fragment_main",
       targets: [
         {
-          format: "bgra8unorm",
+          format: config.format ?? "bgra8unorm",
         },
       ],
     },
     primitive: {
-      // topology: "point-list", // Debug: See all points
       topology: config.wireframe ? "line-list" : "triangle-list",
+      cullMode: config.cullMode ?? "back",
     },
 
     // Add depth testing
     depthStencil: {
-      depthWriteEnabled: true,
-      depthCompare: "less",
+      depthWriteEnabled: config.depthWriteEnabled ?? true,
+      depthCompare: config.depthCompare ?? "less",
       format: "depth24plus",
     },
 

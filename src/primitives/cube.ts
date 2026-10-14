@@ -124,11 +124,11 @@ export function generateCube(
     // Front face
     0, 1, 2, 2, 3, 0,
     // Back face
-    4, 5, 6, 6, 7, 4,
+    4, 6, 5, 6, 4, 7,
     // Left face
     8, 9, 10, 10, 11, 8,
     // Right face
-    12, 13, 14, 14, 15, 12,
+    12, 14, 13, 14, 12, 15,
     // Top face
     16, 17, 18, 18, 19, 16,
     // Bottom face

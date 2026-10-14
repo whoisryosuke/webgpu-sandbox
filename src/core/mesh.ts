@@ -38,6 +38,8 @@ export class Mesh {
    */
   material: string;
   uniforms: Uniforms<MeshUniforms>;
+  /** Whether this mesh should be rendered */
+  visible: boolean = true;
 
   constructor(
     device: GPUDevice,
@@ -54,5 +56,48 @@ export class Mesh {
       UNIFORM_BIND_GROUP_LAYOUT_IDS["locals"]
     );
     this.material = material ?? "Default";
+  }
+
+  /**
+   * Set the position of this mesh.
+   */
+  translate(x: number, y: number, z: number): this {
+    this.uniforms.uniforms.position = { x, y, z };
+    this.uniforms.setUniforms();
+    return this;
+  }
+
+  /**
+   * Set the rotation of this mesh (Euler angles in radians).
+   */
+  rotate(x: number, y: number, z: number): this {
+    this.uniforms.uniforms.rotation = { x, y, z };
+    this.uniforms.setUniforms();
+    return this;
+  }
+
+  /**
+   * Set the scale of this mesh.
+   */
+  scale(x: number, y: number, z: number): this {
+    this.uniforms.uniforms.scale = { x, y, z };
+    this.uniforms.setUniforms();
+    return this;
+  }
+
+  /**
+   * Toggle visibility of this mesh.
+   */
+  setVisible(visible: boolean): this {
+    this.visible = visible;
+    return this;
+  }
+
+  /**
+   * Dispose of GPU resources used by this mesh.
+   */
+  dispose() {
+    this.geometry.dispose();
+    this.uniforms.dispose();
   }
 }
