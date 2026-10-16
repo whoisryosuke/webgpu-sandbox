@@ -66,6 +66,8 @@ async function main() {
   renderer.createCube(0.5);
   renderer.createSphere(0.5, 32, 16);
   renderer.createTorus(0.5, 0.2, 16, 48);
+  // renderer.loadObj("/models/ryoturia/ryoturia.obj");
+  renderer.loadObj("/models/classic-piano/classic-piano.obj");
 
   const [cube, sphere, torus] = renderer.meshes;
   cube.translate(-1.8, 0, 0);
